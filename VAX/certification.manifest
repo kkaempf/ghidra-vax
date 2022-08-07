@@ -1,0 +1,7 @@
+##VERSION: 2.0
+Module.manifest||GHIDRA||||END|
+data/languages/VAX.cspec||GHIDRA||||END|
+data/languages/VAX.ldefs||GHIDRA||||END|
+data/languages/VAX.pspec||GHIDRA||||END|
+data/languages/VAX.slaspec||GHIDRA||||END|
+data/manuals/VAX.idx||GHIDRA||||END|

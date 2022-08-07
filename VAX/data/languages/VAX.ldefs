@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<language_definitions>
+  <language processor="VAX"
+            endian="little"
+            size="32"
+            variant="default"
+            version="1.0"
+            slafile="vax.sla"
+            processorspec="vax.pspec"
+            manualindexfile="../manuals/VAX.idx"
+            id="vax:LE:32:default">
+    <description>DEC VAX</description>
+    <compiler name="default" spec="vax.cspec" id="default"/>
+    <external_name tool="gnu" name="vax"/>
+  </language>
+</language_definitions>

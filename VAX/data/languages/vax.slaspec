@@ -1,0 +1,56 @@
+# sleigh specification file for DEC VAX
+
+define endian=little;
+define alignment=1;
+define space ram      type=ram_space      size=4  wordsize=1 default;
+define space register type=register_space size=4;
+
+define register offset=0x00 size=4 [ R0 R1 R2 R3 R4 R5 R6 R7 R8 R9 R10 R11 AP FP SP PC ];
+
+# processor status longword
+#define register offset=0x40 size=4 [ PSL ];
+
+# processor status word
+#define register offset=0x40 size=2 [ _ PSW ];
+
+# status bits within PSW
+#define bitrange C=PSW[0,1]
+#                V=PSW[1,1]
+#                Z=PSW[2,1]
+#                N=PSW[3,1]
+#                T=PSW[4,1]
+#               IV=PSW[5,1]
+#               FU=PSW[6,1]
+#               DV=PSW[7,1]
+#;
+
+define token data8 (8)
+        imm8  = (0,7)
+        sign8 = (7,7)
+        simm8 = (0,7) signed
+;
+
+define token data16 (16)
+        imm16  = ( 0,15)
+        sign16 = (15,15)
+        simm16 = ( 0,15) signed
+;
+
+# opcode
+define token opbyte (8)
+        op0_8        = (0,7)
+;
+
+# relative addresses, 8 bit and 16 bit
+RelAddr8: loc  is simm8  [ loc = inst_next + simm8; ]        { export *:1 loc; }
+RelAddr16: loc is simm16 [ loc = inst_next + simm16; ]       { export *:1 loc; }
+
+# branch
+
+:BRB RelAddr8 is op0_8=0x11; RelAddr8 {
+  goto RelAddr8;
+}
+
+:BRW RelAddr16 is op0_8=0x31; RelAddr16 {
+  goto RelAddr16;
+}
