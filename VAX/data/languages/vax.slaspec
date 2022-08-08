@@ -24,33 +24,109 @@ define register offset=0x00 size=4 [ R0 R1 R2 R3 R4 R5 R6 R7 R8 R9 R10 R11 AP FP
 #               DV=PSW[7,1]
 #;
 
+# 8bit immediate - byte
 define token data8 (8)
         imm8  = (0,7)
         sign8 = (7,7)
         simm8 = (0,7) signed
 ;
 
+# 16bit immediate - word
 define token data16 (16)
         imm16  = ( 0,15)
         sign16 = (15,15)
         simm16 = ( 0,15) signed
 ;
 
+# 32bit immediate - long
+define token data32 (32)
+        imm32  = ( 0,31)
+        sign32 = (31,31)
+        simm32 = ( 0,31) signed
+;
+
+# 64bit immediate - quad
+define token data64 (64)
+        imm64  = ( 0,63)
+        sign64 = (63,63)
+        simm64 = ( 0,63) signed
+;
+
+# addressing
+define token address (8)
+        literal_mode = (6,7) # literal = 0
+        mode         = (4,7) # mode
+        reg          = (0,3) # register
+        literal      = (0,5) # 6-bit literal signed
+;
+
+attach variables [ reg ] [ R0 R1 R2 R3 R4 R5 R6 R7 R8 R9 R10 R11 AP FP SP PC ];
+
+# effective addresses
+
+#   long, source
+
+# 0-3: literal
+src_l: "S^#"^literal is literal_mode=0 & literal { export *:4 literal; }
+# 5: register
+src_l: reg is mode=5 & reg { export reg; }
+# immediate
+src_l: "I^#"^simm32 is mode=8 & reg=15; simm32 { export simm32; } 
+
+#   long, dest
+
+# 5: register
+#dest_l: reg is mode=5 & reg { export reg; }
+
+#   byte
+
+# 0-3: literal
+#eab: "S^#"^literal is literal_mode=0 & literal { export *:1 literal; }
+# 5: register
+#eab: reg is mode=5 & reg { export *:1 reg; }
+# immediate
+#eab: "I^#"^data32 is mode=8 & reg=PC; simm8 { export *:1 simm8; } 
+
 # opcode
 define token opbyte (8)
-        op0_8        = (0,7)
+        opcode = (0,7)
 ;
 
 # relative addresses, 8 bit and 16 bit
-RelAddr8: loc  is simm8  [ loc = inst_next + simm8; ]        { export *:1 loc; }
-RelAddr16: loc is simm16 [ loc = inst_next + simm16; ]       { export *:1 loc; }
+RelAddr8:  loc is simm8  [ loc = inst_next + simm8; ]        { export *:1 loc; }
+RelAddr16: loc is simm16 [ loc = inst_next + simm16; ]       { export *:2 loc; }
 
 # branch
 
-:BRB RelAddr8 is op0_8=0x11; RelAddr8 {
+# 0001_0001
+:BR.b RelAddr8 is opcode=0x11; RelAddr8 {
   goto RelAddr8;
 }
 
-:BRW RelAddr16 is op0_8=0x31; RelAddr16 {
+# 0011_0001
+:BR.w RelAddr16 is opcode=0x31; RelAddr16 {
   goto RelAddr16;
+}
+
+# 1001_0000
+#:MOV.b src_b, dest_b is opcode=0x90; src_b; dest_b {
+#  dest_b = src_b;
+#}
+# 1011_0000
+#:MOV.w src_w, dest_w is opcode=0xb0; src_w; dest_w {
+#  dest_w = src_w;
+#}
+
+# 1101_0000
+:MOV.l src_l is opcode=0xd0; src_l {
+  goto 0;
+}
+
+# 0111_1101
+:MOV.q is opcode=0x7d {
+  goto 0;
+}
+
+:MOV.o is opcode=0x7d; opcode=0xfd {
+  goto 0;
 }
