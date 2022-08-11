@@ -244,3 +244,11 @@ RelAddr16: loc is simm16 [ loc = inst_next + simm16; ]       { export *:2 loc; }
 :MFPR procreg, dest_l is opcode=0xdb; procreg; dest_l {
   dest_l = procreg;
 }
+
+:BICL2 src_l, dest_l is opcode=0xca; src_l; dest_l {
+  dest_l = dest_l & ~src_l;
+}
+
+#:BICL3 imm32, src_l, dest_l is opcode=0xcb; imm32; src_l; dest_l {
+#  dest_l = src_l & ~imm32;
+#}
