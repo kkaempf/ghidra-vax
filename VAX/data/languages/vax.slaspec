@@ -8,10 +8,20 @@ define space register type=register_space size=4;
 define register offset=0x00 size=4 [ R0 R1 R2 R3 R4 R5 R6 R7 R8 R9 R10 R11 AP FP SP PC ];
 
 # processor status longword
-#define register offset=0x40 size=4 [ PSL ];
+define register offset=0x40 size=4 [ PSL ];
 
 # processor status word
-#define register offset=0x40 size=2 [ _ PSW ];
+define register offset=0x40 size=2 [ _ PSW ];
+
+# processor registers
+define register offset=0x100 size=4 [ KSP   ESP  SSP  USP    ISP  
+                                      P0BR  P0LR P1BR P1LR   SBR  SLR  CPUID
+                                      PCBB  SCBB IPL  ASTLVL SIRR SISR
+                                      ICCS  NICR ICR  TODR
+                                      RXCS  RXDB TXCS TXDB
+                                      x2a x2b
+                                      MAPEN TBIA TBIS             PME  SID TBCHK
+                                      VPSR  VAER VMAC VTBIA  VSAR ];
 
 # status bits within PSW
 #define bitrange C=PSW[0,1]
@@ -59,8 +69,13 @@ define token octa (64)
         simm128 = (  0,127) signed
 ;
 
+# opcode
+define token opbyte (8)
+        opcode = (0,7)
+;
+
 # addressing
-define token address (8)
+define token addrmode (8)
         literal_mode = (6,7) # literal = 0
         literal      = (0,5) # 6-bit literal unsigned
         mode         = (4,7) # mode
@@ -68,6 +83,45 @@ define token address (8)
 ;
 
 attach variables [ reg ] [ R0 R1 R2 R3 R4 R5 R6 R7 R8 R9 R10 R11 AP FP SP PC ];
+
+# processor register
+define token preg (8)
+        procreg = (0,7)
+;
+
+attach variables [ procreg ] [ KSP   ESP  SSP  USP    ISP  _    _     _   #  0 -
+                               P0BR  P0LR P1BR P1LR   SBR  SLR  CPUID _   #  8 -
+                               PCBB  SCBB IPL  ASTLVL SIRR SISR _     _   # 16 -
+                               ICCS  NICR ICR  TODR   _    _    _     _   # 24 -
+                               RXCS  RXDB TXCS TXDB   _    _    _     _   # 32 -
+                               _     _    x2a  x2b    _    _    _     _   # 40 -
+                               _     _    _    _      _    _    _     _   # 48 -
+                               MAPEN TBIA TBIS _      _    PME  SID TBCHK # 56 -
+                               _     _    _    _      _    _    _     _   # 64
+                               _     _    _    _      _    _    _     _   # 72
+                               _     _    _    _      _    _    _     _   # 80
+                               _     _    _    _      _    _    _     _   # 88
+                               _     _    _    _      _    _    _     _   # 96
+                               _     _    _    _      _    _    _     _   # 104
+                               _     _    _    _      _    _    _     _   # 112
+                               _     _    _    _      _    _    _     _   # 120
+                               _     _    _    _      _    _    _     _   # 128
+                               _     _    _    _      _    _    _     _   # 136
+                               VPSR  VAER VMAC VTBIA  VSAR _    _     _   # 144
+                               _     _    _    _      _    _    _     _   # 152
+                               _     _    _    _      _    _    _     _   # 160
+                               _     _    _    _      _    _    _     _   # 168
+                               _     _    _    _      _    _    _     _   # 176
+                               _     _    _    _      _    _    _     _   # 184
+                               _     _    _    _      _    _    _     _   # 192
+                               _     _    _    _      _    _    _     _   # 200
+                               _     _    _    _      _    _    _     _   # 208
+                               _     _    _    _      _    _    _     _   # 216
+                               _     _    _    _      _    _    _     _   # 224
+                               _     _    _    _      _    _    _     _   # 232
+                               _     _    _    _      _    _    _     _   # 240
+                               _     _    _    _      _    _    _     _   # 248
+                               ];
 
 # effective addresses
 
@@ -95,6 +149,36 @@ src_l: "@#"^imm32 is mode=9 & reg=15; imm32 { export imm32; }
 # 9: auto increment deferred
 src_l: @(reg)+ is mode=9 & reg { tmp = reg; reg = reg + 4; export *:4 tmp; }
 
+# byte relative
+#src_l: "B^"^simm8^"(PC)" is mode=10 & reg=15; simm8 { tmp = inst_next + simm8; export *:4 tmp; }
+# byte displacement
+src_l: "B^"^simm8(reg) is mode=10 & reg; simm8 { tmp = reg + simm8; export *:4 tmp; }
+
+# byte relative deferred
+#src_l: "@B^"^simm8^"(PC)" is mode=11 & reg=15; simm8 { tmp = inst_next + simm8; export *:4 tmp; }
+# byte displacement deferred
+src_l: "@B^"^simm8(reg) is mode=11 & reg; simm8 { tmp = reg + simm8; export *:4 tmp; }
+
+# word relative
+#src_l: "W^"^simm16^"(PC)" is mode=12 & reg=15; simm16 { tmp = inst_next + simm16; export *:4 tmp; }
+# word displacement
+src_l: "W^"^simm16(reg) is mode=12 & reg; simm16 { tmp = reg + simm16; export *:4 tmp; }
+
+# word relative deferred
+#src_l: "@W^"^simm16^"(PC)" is mode=13 & reg=15; simm16 { tmp = inst_next + simm16; export *:4 tmp; }
+# word displacement deferred
+src_l: "@W^"^simm16(reg) is mode=13 & reg; simm16 { tmp = reg + simm16; export *:4 tmp; }
+
+# longword relative
+#src_l: "L^"^simm32^"(PC)" is mode=14 & reg=15; simm32 { tmp = inst_next + simm32; export *:4 tmp; }
+# longword displacement
+src_l: "L^"^simm32(reg) is mode=14 & reg; simm32 { tmp = reg + simm32; export *:4 tmp; }
+
+# longword relative deferred
+#src_l: "@L^"^simm32^"(PC)" is mode=15 & reg=15; simm32 { tmp = inst_next + simm32; export *:4 tmp; }
+# longword displacement deferred
+src_l: "@L^"^simm32(reg) is mode=15 & reg; simm32 { tmp = reg + simm32; export *:4 tmp; }
+
 #   long, dest
 
 dest_l: ""^src_l is src_l { export src_l; }
@@ -107,11 +191,6 @@ dest_l: ""^src_l is src_l { export src_l; }
 #eab: reg is mode=5 & reg { export *:1 reg; }
 # immediate
 #eab: "I^#"^data32 is mode=8 & reg=PC; simm8 { export *:1 simm8; } 
-
-# opcode
-define token opbyte (8)
-        opcode = (0,7)
-;
 
 # relative addresses, 8 bit and 16 bit
 RelAddr8:  loc is simm8  [ loc = inst_next + simm8; ]        { export *:1 loc; }
@@ -154,4 +233,14 @@ RelAddr16: loc is simm16 [ loc = inst_next + simm16; ]       { export *:2 loc; }
 
 :MCOM.l src_l, dest_l is opcode=0xd2; src_l; dest_l {
   dest_l = src_l ^ -1;
+}
+
+# move to processor register
+:MFTR src_l, procreg is opcode=0xda; src_l; procreg {
+  procreg = src_l;
+}
+
+# move from processor register
+:MFPR procreg, dest_l is opcode=0xdb; procreg; dest_l {
+  dest_l = procreg;
 }
