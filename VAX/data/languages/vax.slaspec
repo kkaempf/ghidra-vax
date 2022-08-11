@@ -25,39 +25,46 @@ define register offset=0x00 size=4 [ R0 R1 R2 R3 R4 R5 R6 R7 R8 R9 R10 R11 AP FP
 #;
 
 # 8bit immediate - byte
-define token data8 (8)
+define token byte (8)
         imm8  = (0,7)
         sign8 = (7,7)
         simm8 = (0,7) signed
 ;
 
 # 16bit immediate - word
-define token data16 (16)
+define token word (16)
         imm16  = ( 0,15)
         sign16 = (15,15)
         simm16 = ( 0,15) signed
 ;
 
 # 32bit immediate - long
-define token data32 (32)
+define token long (32)
         imm32  = ( 0,31)
         sign32 = (31,31)
         simm32 = ( 0,31) signed
 ;
 
 # 64bit immediate - quad
-define token data64 (64)
+define token quad (64)
         imm64  = ( 0,63)
         sign64 = (63,63)
         simm64 = ( 0,63) signed
 ;
 
+# 128bit immediate - octa
+define token octa (64)
+        imm128  = (  0,127)
+        sign128 = (127,127)
+        simm128 = (  0,127) signed
+;
+
 # addressing
 define token address (8)
         literal_mode = (6,7) # literal = 0
+        literal      = (0,5) # 6-bit literal unsigned
         mode         = (4,7) # mode
         reg          = (0,3) # register
-        literal      = (0,5) # 6-bit literal signed
 ;
 
 attach variables [ reg ] [ R0 R1 R2 R3 R4 R5 R6 R7 R8 R9 R10 R11 AP FP SP PC ];
@@ -67,16 +74,30 @@ attach variables [ reg ] [ R0 R1 R2 R3 R4 R5 R6 R7 R8 R9 R10 R11 AP FP SP PC ];
 #   long, source
 
 # 0-3: literal
-src_l: "S^#"^literal is literal_mode=0 & literal { export *:4 literal; }
+src_l: "S^#"^literal is literal_mode=0 & literal { export literal; }
+
 # 5: register
 src_l: reg is mode=5 & reg { export reg; }
+
+# 6: register deferred
+src_l: (reg) is mode=6 & reg { ptr:4 = reg; export *:4 ptr; }
+
+# 7: auto decrement
+src_l: -(reg) is mode=7 & reg { reg = reg - 4; tmp = reg; export *:4 tmp; }
+
 # immediate
 src_l: "I^#"^simm32 is mode=8 & reg=15; simm32 { export simm32; } 
+# 8: auto increment
+src_l: (reg)+ is mode=8 & reg { tmp = reg; reg = reg + 4; export *:4 tmp; }
+
+# absolute
+src_l: "@#"^imm32 is mode=9 & reg=15; imm32 { export imm32; }
+# 9: auto increment deferred
+src_l: @(reg)+ is mode=9 & reg { tmp = reg; reg = reg + 4; export *:4 tmp; }
 
 #   long, dest
 
-# 5: register
-#dest_l: reg is mode=5 & reg { export reg; }
+dest_l: ""^src_l is src_l { export src_l; }
 
 #   byte
 
@@ -118,15 +139,19 @@ RelAddr16: loc is simm16 [ loc = inst_next + simm16; ]       { export *:2 loc; }
 #}
 
 # 1101_0000
-:MOV.l src_l is opcode=0xd0; src_l {
-  goto 0;
+:MOV.l src_l, dest_l is opcode=0xd0; src_l; dest_l {
+  dest_l = src_l;
 }
 
 # 0111_1101
-:MOV.q is opcode=0x7d {
-  goto 0;
+:MOV.q src_l, dest_l is opcode=0x7d; src_l; dest_l {
+  dest_l = src_l;
 }
 
 :MOV.o is opcode=0x7d; opcode=0xfd {
   goto 0;
+}
+
+:MCOM.l src_l, dest_l is opcode=0xd2; src_l; dest_l {
+  dest_l = src_l ^ -1;
 }
