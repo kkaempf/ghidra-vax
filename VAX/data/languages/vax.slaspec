@@ -158,8 +158,12 @@ src_l: "I^#"^simm32 is mode=8 & reg=15; simm32 { export simm32; }
 src_l: (reg)+ is mode=8 & reg { tmp = reg; reg = reg + 4; export *:4 tmp; }
 
 # 9f: absolute
+src_b: "@#"^imm32 is mode=9 & reg=15; imm32 { export imm32; }
+src_w: "@#"^imm32 is mode=9 & reg=15; imm32 { export imm32; }
 src_l: "@#"^imm32 is mode=9 & reg=15; imm32 { export imm32; }
 # 9x: auto increment deferred
+src_b: @(reg)+ is mode=9 & reg { tmp = reg; reg = reg + 1; export *:1 tmp; }
+src_w: @(reg)+ is mode=9 & reg { tmp = reg; reg = reg + 2; export *:2 tmp; }
 src_l: @(reg)+ is mode=9 & reg { tmp = reg; reg = reg + 4; export *:4 tmp; }
 
 # af: byte relative
@@ -208,13 +212,66 @@ RelAddr16: loc is simm16 [ loc = inst_next + simm16; ]       { export *:2 loc; }
 
 # branch
 
+# 0001 0001
 :BR.b RelAddr8 is opcode=0x11; RelAddr8 {
   goto RelAddr8;
 }
+# 0001 0010
+:BNEQ RelAddr8 is opcode=0x12; RelAddr8 {
+  goto RelAddr8;
+}
+# 0001 0011
+:BEQL RelAddr8 is opcode=0x13; RelAddr8 {
+  goto RelAddr8;
+}
+# 0001 0100
+:BGTR RelAddr8 is opcode=0x14; RelAddr8 {
+  goto RelAddr8;
+}
+# 0001 0101
+:BLEQ RelAddr8 is opcode=0x15; RelAddr8 {
+  goto RelAddr8;
+}
+# 0001 0110 -
+# 0001 0111 -
+# 0001 1000
+:BGEQ RelAddr8 is opcode=0x18; RelAddr8 {
+  goto RelAddr8;
+}
+# 0001 1001
+:BLSS RelAddr8 is opcode=0x19; RelAddr8 {
+  goto RelAddr8;
+}
+# 0001 1010
+:BGTRU RelAddr8 is opcode=0x1a; RelAddr8 {
+  goto RelAddr8;
+}
+# 0001 1011
+:BLEQU RelAddr8 is opcode=0x1b; RelAddr8 {
+  goto RelAddr8;
+}
+# 0001 1100
+:BVC RelAddr8 is opcode=0x1c; RelAddr8 {
+  goto RelAddr8;
+}
+# 0001 1101
+:BVS RelAddr8 is opcode=0x1d; RelAddr8 {
+  goto RelAddr8;
+}
+# 0001 1110
+:BCC RelAddr8 is opcode=0x1e; RelAddr8 {
+  goto RelAddr8;
+}
+# 0001 1111
+:BCS RelAddr8 is opcode=0x1f; RelAddr8 {
+  goto RelAddr8;
+}
+
 
 :BR.w RelAddr16 is opcode=0x31; RelAddr16 {
   goto RelAddr16;
 }
+
 
 # move
 
@@ -304,4 +361,26 @@ base: src_l is src_l { export src_l; }
 }
 :CMPZV pos, size.rb, base, src_l is opcode=0xed; pos; size.rb; base; src_l {
   field = base + pos*zext(size.rb); # TODO zext
+}
+
+# case
+selector.b: src_b is src_b { export src_b; }
+limit.b: src_b is src_b { export src_b; }
+selector.w: src_w is src_w { export src_w; }
+limit.w: src_w is src_w { export src_w; }
+selector.l: src_l is src_l { export src_l; }
+limit.l: src_l is src_l { export src_l; }
+
+:CASE.b selector.b, base, limit.b is opcode=0x8f; selector.b; base; limit.b {
+  offset = 2*(limit.b + 1);
+  loc = inst_next + offset;
+#  goto loc;
+}
+:CASE.w selector.w, base, limit.w is opcode=0xaf; selector.w; base; limit.w {
+  offset = 2*(limit.w + 1);
+  loc = inst_next + offset;
+}
+:CASE.l selector.l, base, limit.l is opcode=0xcf; selector.l; base; limit.l {
+  offset = 2*(limit.l + 1);
+  loc = inst_next + offset;
 }
