@@ -76,10 +76,10 @@ define token opbyte (8)
 
 # addressing
 define token addrmode (8)
-        literal_mode = (6,7) # literal = 0
-        literal      = (0,5) # 6-bit literal unsigned
-        mode         = (4,7) # mode
-        reg          = (0,3) # register
+        mode67  = (6,7) # literal if mode67 = 0
+        litval  = (0,5) # 6-bit literal unsigned
+        mode    = (4,7) # mode
+        reg     = (0,3) # register
 ;
 
 attach variables [ reg ] [ R0 R1 R2 R3 R4 R5 R6 R7 R8 R9 R10 R11 AP FP SP PC ];
@@ -125,72 +125,82 @@ attach variables [ procreg ] [ KSP   ESP  SSP  USP    ISP  _    _     _   #  0 -
 
 # effective addresses
 
-#   long, source
-
 # 0-3: literal
-src_l: "S^#"^literal is literal_mode=0 & literal { export literal; }
+src_b: "S^#"^litval is mode67=0 & litval { tmp:1 = litval; export tmp; }
+src_w: "S^#"^litval is mode67=0 & litval { tmp:2 = litval; export tmp; }
+src_l: "S^#"^litval is mode67=0 & litval { export litval; }
+
+# 4: indexed
+#src_l: src_l[reg] is mode=4 & reg & src_l { tmp:4 = reg + src_l; export tmp; }
 
 # 5: register
+src_b: reg is mode=5 & reg { tmp = reg:1; export tmp; }
+src_w: reg is mode=5 & reg { tmp = reg:2; export tmp; }
 src_l: reg is mode=5 & reg { export reg; }
 
 # 6: register deferred
-src_l: (reg) is mode=6 & reg { ptr:4 = reg; export *:4 ptr; }
+src_b: (reg) is mode=6 & reg { export *:1 reg; }
+src_w: (reg) is mode=6 & reg { export *:2 reg; }
+src_l: (reg) is mode=6 & reg { export *reg; }
 
-# 7: auto decrement
-src_l: -(reg) is mode=7 & reg { reg = reg - 4; tmp = reg; export *:4 tmp; }
+# 7x: auto decrement
+src_b: -(reg) is mode=7 & reg { reg = reg - 1; export *:1 reg; }
+src_w: -(reg) is mode=7 & reg { reg = reg - 2; export *:2 reg; }
+src_l: -(reg) is mode=7 & reg { reg = reg - 4; export *reg; }
 
-# immediate
+# 8f immediate
+src_b: "I^#"^simm32 is mode=8 & reg=15; simm32 { export simm32; } 
+# 8x: auto increment
+src_b: (reg)+ is mode=8 & reg { tmp = reg; reg = reg + 1; export *:1 tmp; }
+src_w: "I^#"^simm32 is mode=8 & reg=15; simm32 { export simm32; } 
+src_w: (reg)+ is mode=8 & reg { tmp = reg; reg = reg + 2; export *:2 tmp; }
 src_l: "I^#"^simm32 is mode=8 & reg=15; simm32 { export simm32; } 
-# 8: auto increment
 src_l: (reg)+ is mode=8 & reg { tmp = reg; reg = reg + 4; export *:4 tmp; }
 
-# absolute
+# 9f: absolute
 src_l: "@#"^imm32 is mode=9 & reg=15; imm32 { export imm32; }
-# 9: auto increment deferred
+# 9x: auto increment deferred
 src_l: @(reg)+ is mode=9 & reg { tmp = reg; reg = reg + 4; export *:4 tmp; }
 
-# byte relative
+# af: byte relative
 #src_l: "B^"^simm8^"(PC)" is mode=10 & reg=15; simm8 { tmp = inst_next + simm8; export *:4 tmp; }
-# byte displacement
+# ax: byte displacement
 src_l: "B^"^simm8(reg) is mode=10 & reg; simm8 { tmp = reg + simm8; export *:4 tmp; }
 
-# byte relative deferred
+# bf: byte relative deferred
 #src_l: "@B^"^simm8^"(PC)" is mode=11 & reg=15; simm8 { tmp = inst_next + simm8; export *:4 tmp; }
-# byte displacement deferred
+# bx: byte displacement deferred
 src_l: "@B^"^simm8(reg) is mode=11 & reg; simm8 { tmp = reg + simm8; export *:4 tmp; }
 
-# word relative
+# cf: word relative
 #src_l: "W^"^simm16^"(PC)" is mode=12 & reg=15; simm16 { tmp = inst_next + simm16; export *:4 tmp; }
-# word displacement
+# cx: word displacement
 src_l: "W^"^simm16(reg) is mode=12 & reg; simm16 { tmp = reg + simm16; export *:4 tmp; }
 
-# word relative deferred
+# df: word relative deferred
 #src_l: "@W^"^simm16^"(PC)" is mode=13 & reg=15; simm16 { tmp = inst_next + simm16; export *:4 tmp; }
-# word displacement deferred
+# dx: word displacement deferred
 src_l: "@W^"^simm16(reg) is mode=13 & reg; simm16 { tmp = reg + simm16; export *:4 tmp; }
 
-# longword relative
+# ef: longword relative
 #src_l: "L^"^simm32^"(PC)" is mode=14 & reg=15; simm32 { tmp = inst_next + simm32; export *:4 tmp; }
-# longword displacement
+# ex: longword displacement
 src_l: "L^"^simm32(reg) is mode=14 & reg; simm32 { tmp = reg + simm32; export *:4 tmp; }
 
-# longword relative deferred
+# ff: longword relative deferred
 #src_l: "@L^"^simm32^"(PC)" is mode=15 & reg=15; simm32 { tmp = inst_next + simm32; export *:4 tmp; }
-# longword displacement deferred
+# fx: longword displacement deferred
 src_l: "@L^"^simm32(reg) is mode=15 & reg; simm32 { tmp = reg + simm32; export *:4 tmp; }
 
-#   long, dest
+#   dest
 
-dest_l: ""^src_l is src_l { export src_l; }
+dest_b: src_b is src_b { export src_b; }
+dest_w: src_w is src_w { export src_w; }
+dest_l: src_l is src_l { export src_l; }
 
-#   byte
-
-# 0-3: literal
-#eab: "S^#"^literal is literal_mode=0 & literal { export *:1 literal; }
-# 5: register
-#eab: reg is mode=5 & reg { export *:1 reg; }
-# immediate
-#eab: "I^#"^data32 is mode=8 & reg=PC; simm8 { export *:1 simm8; } 
+op3_b: src_b is src_b { export src_b; }
+op3_w: src_w is src_w { export src_w; }
+op3_l: src_l is src_l { export src_l; }
 
 # relative addresses, 8 bit and 16 bit
 RelAddr8:  loc is simm8  [ loc = inst_next + simm8; ]        { export *:1 loc; }
@@ -198,31 +208,28 @@ RelAddr16: loc is simm16 [ loc = inst_next + simm16; ]       { export *:2 loc; }
 
 # branch
 
-# 0001_0001
 :BR.b RelAddr8 is opcode=0x11; RelAddr8 {
   goto RelAddr8;
 }
 
-# 0011_0001
 :BR.w RelAddr16 is opcode=0x31; RelAddr16 {
   goto RelAddr16;
 }
 
-# 1001_0000
-#:MOV.b src_b, dest_b is opcode=0x90; src_b; dest_b {
-#  dest_b = src_b;
-#}
-# 1011_0000
-#:MOV.w src_w, dest_w is opcode=0xb0; src_w; dest_w {
-#  dest_w = src_w;
-#}
+# move
 
-# 1101_0000
+:MOV.b src_b, dest_b is opcode=0x90; src_b; dest_b {
+  dest_b = src_b;
+}
+
+:MOV.w src_w, dest_w is opcode=0xb0; src_w; dest_w {
+  dest_w = src_w;
+}
+
 :MOV.l src_l, dest_l is opcode=0xd0; src_l; dest_l {
   dest_l = src_l;
 }
 
-# 0111_1101
 :MOV.q src_l, dest_l is opcode=0x7d; src_l; dest_l {
   dest_l = src_l;
 }
@@ -231,6 +238,14 @@ RelAddr16: loc is simm16 [ loc = inst_next + simm16; ]       { export *:2 loc; }
   goto 0;
 }
 
+# complement
+
+:MCOM.b src_b, dest_b is opcode=0x92; src_b; dest_b {
+  dest_b = ~src_b;
+}
+:MCOM.w src_w, dest_w is opcode=0xb2; src_w; dest_w {
+  dest_w = ~src_w;
+}
 :MCOM.l src_l, dest_l is opcode=0xd2; src_l; dest_l {
   dest_l = src_l ^ -1;
 }
@@ -245,10 +260,23 @@ RelAddr16: loc is simm16 [ loc = inst_next + simm16; ]       { export *:2 loc; }
   dest_l = procreg;
 }
 
+# bit clear
+:BICB2 src_b, dest_b is opcode=0x8a; src_b; dest_b {
+  dest_b = dest_b & ~src_b;
+}
+:BICW2 src_w, dest_w is opcode=0xaa; src_w; dest_w {
+  dest_w = dest_w & ~src_w;
+}
 :BICL2 src_l, dest_l is opcode=0xca; src_l; dest_l {
   dest_l = dest_l & ~src_l;
 }
 
-#:BICL3 imm32, src_l, dest_l is opcode=0xcb; imm32; src_l; dest_l {
-#  dest_l = src_l & ~imm32;
-#}
+:BICB3 op3_b, src_b, dest_b is opcode=0x8b; op3_b; src_b; dest_b {
+  dest_b = src_b & ~op3_b;
+}
+:BICW3 op3_w, src_w, dest_w is opcode=0xab; op3_w; src_w; dest_w {
+  dest_w = src_w & ~op3_w;
+}
+:BICL3 op3_l, src_l, dest_l is opcode=0xcb; op3_l; src_l; dest_l {
+  dest_l = src_l & ~op3_l;
+}
