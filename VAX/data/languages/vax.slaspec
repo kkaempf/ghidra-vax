@@ -210,6 +210,11 @@ op3_l: src_l is src_l { export src_l; }
 RelAddr8:  loc is simm8  [ loc = inst_next + simm8; ]        { export *:1 loc; }
 RelAddr16: loc is simm16 [ loc = inst_next + simm16; ]       { export *:2 loc; }
 
+# halt
+
+:HALT is opcode=0x0 {
+}
+
 # branch
 
 # 0001 0001
