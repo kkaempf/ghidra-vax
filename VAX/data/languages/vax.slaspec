@@ -261,6 +261,7 @@ RelAddr16: loc is simm16 [ loc = inst_next + simm16; ]       { export *:2 loc; }
 }
 
 # bit clear
+
 :BICB2 src_b, dest_b is opcode=0x8a; src_b; dest_b {
   dest_b = dest_b & ~src_b;
 }
@@ -279,4 +280,28 @@ RelAddr16: loc is simm16 [ loc = inst_next + simm16; ]       { export *:2 loc; }
 }
 :BICL3 op3_l, src_l, dest_l is opcode=0xcb; op3_l; src_l; dest_l {
   dest_l = src_l & ~op3_l;
+}
+
+# compare
+
+:CMPB src_b, dest_b is opcode=0x91; src_b; dest_b {
+  goto 0;
+}
+:CMPW src_w, dest_w is opcode=0xB1; src_w; dest_w {
+  goto 0;
+}
+:CMPL src_l, dest_l is opcode=0xD1; src_l; dest_l {
+  goto 0;
+}
+
+# compare field
+pos: src_l is src_l { export src_l; }
+size.rb: src_b is src_b { export src_b; }
+base: src_l is src_l { export src_l; }
+
+:CMPV pos, size.rb, base, src_l is opcode=0xec; pos; size.rb; base; src_l {
+  field = base + pos*sext(size.rb);
+}
+:CMPZV pos, size.rb, base, src_l is opcode=0xed; pos; size.rb; base; src_l {
+  field = base + pos*zext(size.rb); # TODO zext
 }
