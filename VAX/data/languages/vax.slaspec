@@ -389,3 +389,15 @@ limit.l: src_l is src_l { export src_l; }
   offset = 2*(limit.l + 1);
   loc = inst_next + offset;
 }
+
+# Subtract one and branch
+#  if greater than or equal
+:SOBGEQ dest_l, RelAddr8 is opcode=0xf4; dest_l; RelAddr8 {
+  dest_l = dest_l - 1;
+  if (dest_l >= 0) goto RelAddr8;
+}
+# if greater than
+:SOBGTR dest_l, RelAddr8 is opcode=0xf5; dest_l; RelAddr8 {
+  dest_l = dest_l - 1;
+  if (dest_l > 0) goto RelAddr8;
+}
