@@ -470,3 +470,10 @@ limit.l: src_l is src_l { export src_l; }
 :JMP src_l is opcode=0x17; src_l {
   goto src_l;
 }
+
+# insert field
+pos_l: src_l is src_l { export src_l; }
+size_b: src_b is src_b { export src_b; }
+base_b: src_b is src_b { export src_b; }
+:INSV src_l, pos_l, size_b, base_b is opcode=0xf0; src_l; pos_l; size_b; base_b {
+}
