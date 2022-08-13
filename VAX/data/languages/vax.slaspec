@@ -500,3 +500,10 @@ base_b: src_b is src_b { export src_b; }
 :MOVZWL src_w, dest_l is opcode=0x3c; src_w; dest_l {
   dest_l = zext(src_w);
 }
+
+# Extract field
+:EXTV pos_l, size_b, base_b, dest_l is opcode=0xee; pos_l; size_b; base_b; dest_l {
+}
+#  extract zero-extended field
+:EXTZV pos_l, size_b, base_b, dest_l is opcode=0xef; pos_l; size_b; base_b; dest_l {
+}
