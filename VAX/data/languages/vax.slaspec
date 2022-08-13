@@ -486,3 +486,17 @@ base_b: src_b is src_b { export src_b; }
 :BBC pos_l, base_b, RelAddr8 is opcode=0xE1; pos_l; base_b; RelAddr8 {
   goto RelAddr8;
 }
+
+# move zero-extended
+#   byte to word
+:MOVZBW src_b, dest_w is opcode=0x9b; src_b; dest_w {
+  dest_w = zext(src_b);
+}
+#   byte to long
+:MOVZBW src_b, dest_l is opcode=0x9a; src_b; dest_l {
+  dest_l = zext(src_b);
+}
+#   word to long
+:MOVZWL src_w, dest_l is opcode=0x3c; src_w; dest_l {
+  dest_l = zext(src_w);
+}
