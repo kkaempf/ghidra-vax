@@ -14,25 +14,49 @@ define register offset=0x40 size=4 [ PSL ];
 define register offset=0x40 size=2 [ _ PSW ];
 
 # processor registers
-define register offset=0x100 size=4 [ KSP   ESP  SSP  USP    ISP  
-                                      P0BR  P0LR P1BR P1LR   SBR  SLR  CPUID
-                                      PCBB  SCBB IPL  ASTLVL SIRR SISR
-                                      ICCS  NICR ICR  TODR
-                                      RXCS  RXDB TXCS TXDB
-                                      x2a x2b
-                                      MAPEN TBIA TBIS             PME  SID TBCHK
-                                      VPSR  VAER VMAC VTBIA  VSAR ];
+define register offset=0x100 size=4 [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 PRx07
+                               P0BR  P0LR  P1BR  P1LR  SBR   SLR   CPUID PRx0f
+                               PCBB  SCBB  IPL   ASTLVL SIRR SISR  PRx16 PRx17
+                               ICCS  NICR  ICR   TODR  PRx1c PRx1d PRx1e PRx1f
+                               RXCS  RXDB  TXCS  TXDB  PRx24 PRx25 PRx26 PRx27
+                               PRx28 PRx29 PRx2a PRx2b PRx2c PRx2d PRx2e PRx2f
+                               PRx30 PRx31 PRx32 PRx33 PRx34 PRx35 PRx36 PRx37
+                               MAPEN TBIA  TBIS  PRx3b PRx3c PME   SID   TBCHK
+                               PRx40 PRx41 PRx42 PRx43 PRx44 PRx45 PRx46 PRx47
+                               PRx48 PRx49 PRx4a PRx4b PRx4c PRx4d PRx4e PRx4f
+                               PRx50 PRx51 PRx52 PRx53 PRx54 PRx55 PRx56 PRx57
+                               PRx58 PRx59 PRx5a PRx5b PRx5c PRx5d PRx5e PRx5f
+                               PRx60 PRx61 PRx62 PRx63 PRx64 PRx65 PRx66 PRx67
+                               PRx68 PRx69 PRx6a PRx6b PRx6c PRx6d PRx6e PRx6f
+                               PRx70 PRx71 PRx72 PRx73 PRx74 PRx75 PRx76 PRx77
+                               PRx78 PRx79 PRx7a PRx7b PRx7c PRx7d PRx7e PRx7f
+                               PRx80 PRx81 PRx82 PRx83 PRx84 PRx85 PRx86 PRx87
+                               PRx88 PRx89 PRx8a PRx8b PRx8c PRx8d PRx8e PRx8f
+                               VPSR  VAER  VMAC  VTBIA VSAR  PRx95 PRx96 PRx97
+                               PRx98 PRx99 PRx9a PRx9b PRx9c PRx9d PRx9e PRx9f
+                               PRxa0 PRxa1 PRxa2 PRxa3 PRxa4 PRxa5 PRxa6 PRxa7
+                               PRxa8 PRxa9 PRxaa PRxab PRxac PRxad PRxae PRxaf
+                               PRxb0 PRxb1 PRxb2 PRxb3 PRxb4 PRxb5 PRxb6 PRxb7
+                               PRxb8 PRxb9 PRxba PRxbb PRxbc PRxbd PRxbe PRxbf
+                               PRxc0 PRxc1 PRxc2 PRxc3 PRxc4 PRxc5 PRxc6 PRxc7
+                               PRxc8 PRxc9 PRxca PRxcb PRxcc PRxcd PRxce PRxcf
+                               PRxd0 PRxd1 PRxd2 PRxd3 PRxd4 PRxd5 PRxd6 PRxd7
+                               PRxd8 PRxd9 PRxda PRxdb PRxdc PRxdd PRxde PRxdf
+                               PRxe0 PRxe1 PRxe2 PRxe3 PRxe4 PRxe5 PRxe6 PRxe7
+                               PRxe8 PRxe9 PRxea PRxeb PRxec PRxed PRxee PRxef
+                               PRxf0 PRxf1 PRxf2 PRxf3 PRxf4 PRxf5 PRxf6 PRxf7
+                               PRxf8 PRxf9 PRxfa PRxfb PRxfc PRxfd PRxfe PRxff
+                               ];
 
 # status bits within PSW
-#define bitrange C=PSW[0,1]
-#                V=PSW[1,1]
-#                Z=PSW[2,1]
-#                N=PSW[3,1]
-#                T=PSW[4,1]
-#               IV=PSW[5,1]
-#               FU=PSW[6,1]
-#               DV=PSW[7,1]
-#;
+@define C  "PSW[0,1]" # Carry
+@define V  "PSW[1,1]" # Overflow
+@define Z  "PSW[2,1]" # Zero
+@define N  "PSW[3,1]" # Negative
+@define T  "PSW[4,1]" # Trace enable
+@define IV "PSW[5,1]" # integer overflow enable
+@define FU "PSW[6,1]" # floating underflow enable
+@define DV "PSW[7,1]" # decimal overflow enable
 
 # 8bit immediate - byte
 define token byte (8)
@@ -89,38 +113,38 @@ define token preg (8)
         procreg = (0,7)
 ;
 
-attach variables [ procreg ] [ KSP   ESP  SSP  USP    ISP  _    _     _   #  0 -
-                               P0BR  P0LR P1BR P1LR   SBR  SLR  CPUID _   #  8 -
-                               PCBB  SCBB IPL  ASTLVL SIRR SISR _     _   # 16 -
-                               ICCS  NICR ICR  TODR   _    _    _     _   # 24 -
-                               RXCS  RXDB TXCS TXDB   _    _    _     _   # 32 -
-                               _     _    x2a  x2b    _    _    _     _   # 40 -
-                               _     _    _    _      _    _    _     _   # 48 -
-                               MAPEN TBIA TBIS _      _    PME  SID TBCHK # 56 -
-                               _     _    _    _      _    _    _     _   # 64
-                               _     _    _    _      _    _    _     _   # 72
-                               _     _    _    _      _    _    _     _   # 80
-                               _     _    _    _      _    _    _     _   # 88
-                               _     _    _    _      _    _    _     _   # 96
-                               _     _    _    _      _    _    _     _   # 104
-                               _     _    _    _      _    _    _     _   # 112
-                               _     _    _    _      _    _    _     _   # 120
-                               _     _    _    _      _    _    _     _   # 128
-                               _     _    _    _      _    _    _     _   # 136
-                               VPSR  VAER VMAC VTBIA  VSAR _    _     _   # 144
-                               _     _    _    _      _    _    _     _   # 152
-                               _     _    _    _      _    _    _     _   # 160
-                               _     _    _    _      _    _    _     _   # 168
-                               _     _    _    _      _    _    _     _   # 176
-                               _     _    _    _      _    _    _     _   # 184
-                               _     _    _    _      _    _    _     _   # 192
-                               _     _    _    _      _    _    _     _   # 200
-                               _     _    _    _      _    _    _     _   # 208
-                               _     _    _    _      _    _    _     _   # 216
-                               _     _    _    _      _    _    _     _   # 224
-                               _     _    _    _      _    _    _     _   # 232
-                               _     _    _    _      _    _    _     _   # 240
-                               _     _    _    _      _    _    _     _   # 248
+attach variables [ procreg ] [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 PRx07
+                               P0BR  P0LR  P1BR  P1LR  SBR   SLR   CPUID PRx0f
+                               PCBB  SCBB  IPL   ASTLVL SIRR SISR  PRx16 PRx17
+                               ICCS  NICR  ICR   TODR  PRx1c PRx1d PRx1e PRx1f
+                               RXCS  RXDB  TXCS  TXDB  PRx24 PRx25 PRx26 PRx27
+                               PRx28 PRx29 PRx2a PRx2b PRx2c PRx2d PRx2e PRx2f
+                               PRx30 PRx31 PRx32 PRx33 PRx34 PRx35 PRx36 PRx37
+                               MAPEN TBIA  TBIS  PRx3b PRx3c PME   SID   TBCHK
+                               PRx40 PRx41 PRx42 PRx43 PRx44 PRx45 PRx46 PRx47
+                               PRx48 PRx49 PRx4a PRx4b PRx4c PRx4d PRx4e PRx4f
+                               PRx50 PRx51 PRx52 PRx53 PRx54 PRx55 PRx56 PRx57
+                               PRx58 PRx59 PRx5a PRx5b PRx5c PRx5d PRx5e PRx5f
+                               PRx60 PRx61 PRx62 PRx63 PRx64 PRx65 PRx66 PRx67
+                               PRx68 PRx69 PRx6a PRx6b PRx6c PRx6d PRx6e PRx6f
+                               PRx70 PRx71 PRx72 PRx73 PRx74 PRx75 PRx76 PRx77
+                               PRx78 PRx79 PRx7a PRx7b PRx7c PRx7d PRx7e PRx7f
+                               PRx80 PRx81 PRx82 PRx83 PRx84 PRx85 PRx86 PRx87
+                               PRx88 PRx89 PRx8a PRx8b PRx8c PRx8d PRx8e PRx8f
+                               VPSR  VAER  VMAC  VTBIA VSAR  PRx95 PRx96 PRx97
+                               PRx98 PRx99 PRx9a PRx9b PRx9c PRx9d PRx9e PRx9f
+                               PRxa0 PRxa1 PRxa2 PRxa3 PRxa4 PRxa5 PRxa6 PRxa7
+                               PRxa8 PRxa9 PRxaa PRxab PRxac PRxad PRxae PRxaf
+                               PRxb0 PRxb1 PRxb2 PRxb3 PRxb4 PRxb5 PRxb6 PRxb7
+                               PRxb8 PRxb9 PRxba PRxbb PRxbc PRxbd PRxbe PRxbf
+                               PRxc0 PRxc1 PRxc2 PRxc3 PRxc4 PRxc5 PRxc6 PRxc7
+                               PRxc8 PRxc9 PRxca PRxcb PRxcc PRxcd PRxce PRxcf
+                               PRxd0 PRxd1 PRxd2 PRxd3 PRxd4 PRxd5 PRxd6 PRxd7
+                               PRxd8 PRxd9 PRxda PRxdb PRxdc PRxdd PRxde PRxdf
+                               PRxe0 PRxe1 PRxe2 PRxe3 PRxe4 PRxe5 PRxe6 PRxe7
+                               PRxe8 PRxe9 PRxea PRxeb PRxec PRxed PRxee PRxef
+                               PRxf0 PRxf1 PRxf2 PRxf3 PRxf4 PRxf5 PRxf6 PRxf7
+                               PRxf8 PRxf9 PRxfa PRxfb PRxfc PRxfd PRxfe PRxff
                                ];
 
 # effective addresses
@@ -134,8 +158,8 @@ src_l: "S^#"^litval is mode67=0 & litval { export litval; }
 #src_l: src_l[reg] is mode=4 & reg & src_l { tmp:4 = reg + src_l; export tmp; }
 
 # 5: register
-src_b: reg is mode=5 & reg { tmp = reg:1; export tmp; }
-src_w: reg is mode=5 & reg { tmp = reg:2; export tmp; }
+src_b: reg is mode=5 & reg { tmp:1 = reg:1; export tmp; }
+src_w: reg is mode=5 & reg { tmp:2 = reg:2; export tmp; }
 src_l: reg is mode=5 & reg { export reg; }
 
 # 6: register deferred
@@ -149,22 +173,22 @@ src_w: -(reg) is mode=7 & reg { reg = reg - 2; export *:2 reg; }
 src_l: -(reg) is mode=7 & reg { reg = reg - 4; export *reg; }
 
 # 8f immediate
-src_b: "I^#"^simm32 is mode=8 & reg=15; simm32 { export simm32; } 
+src_b: "I^#"^simm32 is mode=8 & reg=15; simm32 { tmp:1 = simm32; export tmp; } 
 # 8x: auto increment
 src_b: (reg)+ is mode=8 & reg { tmp = reg; reg = reg + 1; export *:1 tmp; }
-src_w: "I^#"^simm32 is mode=8 & reg=15; simm32 { export simm32; } 
+src_w: "I^#"^simm32 is mode=8 & reg=15; simm32 { export simm32; }
 src_w: (reg)+ is mode=8 & reg { tmp = reg; reg = reg + 2; export *:2 tmp; }
-src_l: "I^#"^simm32 is mode=8 & reg=15; simm32 { export simm32; } 
+src_l: "I^#"^simm32 is mode=8 & reg=15; simm32 { export simm32; }
 src_l: (reg)+ is mode=8 & reg { tmp = reg; reg = reg + 4; export *:4 tmp; }
-
+                
 # 9f: absolute
-src_b: "@#"^imm32 is mode=9 & reg=15; imm32 { export imm32; }
-src_w: "@#"^imm32 is mode=9 & reg=15; imm32 { export imm32; }
-src_l: "@#"^imm32 is mode=9 & reg=15; imm32 { export imm32; }
+src_b: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export *:1 tmp; }
+src_w: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export *:2 tmp; }
+src_l: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export *:4 tmp; }
 # 9x: auto increment deferred
-src_b: @(reg)+ is mode=9 & reg { tmp = reg; reg = reg + 1; export *:1 tmp; }
-src_w: @(reg)+ is mode=9 & reg { tmp = reg; reg = reg + 2; export *:2 tmp; }
-src_l: @(reg)+ is mode=9 & reg { tmp = reg; reg = reg + 4; export *:4 tmp; }
+src_b: @(reg)+ is mode=9 & reg { tmp = *:4 reg; reg = reg + 4; export *:1 tmp; }
+src_w: @(reg)+ is mode=9 & reg { tmp = *:4 reg; reg = reg + 4; export *:2 tmp; }
+src_l: @(reg)+ is mode=9 & reg { tmp = *:4 reg; reg = reg + 4; export *:4 tmp; }
 
 # af: byte relative
 #src_l: "B^"^simm8^"(PC)" is mode=10 & reg=15; simm8 { tmp = inst_next + simm8; export *:4 tmp; }
@@ -223,56 +247,54 @@ RelAddr16: loc is simm16 [ loc = inst_next + simm16; ]       { export *:2 loc; }
 }
 # 0001 0010
 :BNEQ RelAddr8 is opcode=0x12; RelAddr8 {
-  goto RelAddr8;
+  if ($(Z) == 0) goto RelAddr8;
 }
 # 0001 0011
 :BEQL RelAddr8 is opcode=0x13; RelAddr8 {
-  goto RelAddr8;
+  if ($(Z) == 1) goto RelAddr8;
 }
 # 0001 0100
 :BGTR RelAddr8 is opcode=0x14; RelAddr8 {
-  goto RelAddr8;
+  if (($(Z)|$(N)) == 0) goto RelAddr8;
 }
 # 0001 0101
 :BLEQ RelAddr8 is opcode=0x15; RelAddr8 {
-  goto RelAddr8;
+  if (($(Z)|$(N)) == 1) goto RelAddr8;
 }
 # 0001 0110 -
 # 0001 0111 -
 # 0001 1000
 :BGEQ RelAddr8 is opcode=0x18; RelAddr8 {
-  goto RelAddr8;
+  if ($(N) == 0) goto RelAddr8;
 }
 # 0001 1001
 :BLSS RelAddr8 is opcode=0x19; RelAddr8 {
-  goto RelAddr8;
+  if ($(N) == 1) goto RelAddr8;
 }
 # 0001 1010
 :BGTRU RelAddr8 is opcode=0x1a; RelAddr8 {
-  goto RelAddr8;
+  if (($(C)|$(Z)) == 0) goto RelAddr8;
 }
 # 0001 1011
 :BLEQU RelAddr8 is opcode=0x1b; RelAddr8 {
-  goto RelAddr8;
+  if (($(C)|$(Z)) == 1) goto RelAddr8;
 }
 # 0001 1100
 :BVC RelAddr8 is opcode=0x1c; RelAddr8 {
-  goto RelAddr8;
+  if ($(V) == 0) goto RelAddr8;
 }
 # 0001 1101
 :BVS RelAddr8 is opcode=0x1d; RelAddr8 {
-  goto RelAddr8;
+  if ($(V) == 1) goto RelAddr8;
 }
 # 0001 1110
 :BCC RelAddr8 is opcode=0x1e; RelAddr8 {
-  goto RelAddr8;
+  if ($(C) == 0) goto RelAddr8;
 }
 # 0001 1111
 :BCS RelAddr8 is opcode=0x1f; RelAddr8 {
-  goto RelAddr8;
+  if ($(C) == 1) goto RelAddr8;
 }
-
-
 :BR.w RelAddr16 is opcode=0x31; RelAddr16 {
   goto RelAddr16;
 }
@@ -346,14 +368,39 @@ RelAddr16: loc is simm16 [ loc = inst_next + simm16; ]       { export *:2 loc; }
 
 # compare
 
+macro negflag(a,b)
+{
+  $(N) = (sext(a) s< sext(b));
+}
+
+macro zeroflag(a,b)
+{
+  $(Z) = (a == b);
+}
+
+macro carryflag(a,b)
+{
+  $(C) = (zext(a) < zext(b));
+}
+
 :CMPB src_b, dest_b is opcode=0x91; src_b; dest_b {
-  goto 0;
+#  negflag(src_b, dest_b);
+  zeroflag(src_b, dest_b);
+  $(V) = 0;
+#  carryflag(src_b, dest_b);
 }
-:CMPW src_w, dest_w is opcode=0xB1; src_w; dest_w {
-  goto 0;
+
+:CMPW src_w, dest_w is opcode=0xb1; src_w; dest_w {
+#  negflag(src_w, dest_w);
+  zeroflag(src_w, dest_w);
+  $(V) = 0;
+#  carryflag(src_w, dest_w);
 }
-:CMPL src_l, dest_l is opcode=0xD1; src_l; dest_l {
-  goto 0;
+:CMPL src_l, dest_l is opcode=0xd1; src_l; dest_l {
+#  negflag(src_l, dest_l);
+  zeroflag(src_l, dest_l);
+  $(V) = 0;
+#  carryflag(src_l, dest_l);
 }
 
 # compare field
@@ -392,12 +439,18 @@ limit.l: src_l is src_l { export src_l; }
 
 # Subtract one and branch
 #  if greater than or equal
-:SOBGEQ dest_l, RelAddr8 is opcode=0xf4; dest_l; RelAddr8 {
-  dest_l = dest_l - 1;
-  if (dest_l >= 0) goto RelAddr8;
-}
-# if greater than
-:SOBGTR dest_l, RelAddr8 is opcode=0xf5; dest_l; RelAddr8 {
-  dest_l = dest_l - 1;
-  if (dest_l > 0) goto RelAddr8;
+#:SOBGEQ dest_l, RelAddr8 is opcode=0xf4; dest_l; RelAddr8 {
+#  dest_l = dest_l - 1;
+#  if (dest_l >= 0) goto RelAddr8;
+#}
+#  if greater than
+#:SOBGTR dest_l, RelAddr8 is opcode=0xf5; dest_l; RelAddr8 {
+#  dest_l = dest_l - 1;
+#  if (dest_l > 0) goto RelAddr8;
+#}
+
+# jump
+
+:JMP src_l is opcode=0x17; src_l {
+  goto src_l;
 }
