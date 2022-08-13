@@ -1,4 +1,9 @@
 # sleigh specification file for DEC VAX
+#
+# Copyright (c) 2022 by Klaus Kämpf <kkaempf@gmail.com>
+#
+# Licensed under the Apache 2.0 license
+#
 
 define endian=little;
 define alignment=1;
@@ -190,35 +195,43 @@ src_b: @(reg)+ is mode=9 & reg { tmp = *:4 reg; reg = reg + 4; export *:1 tmp; }
 src_w: @(reg)+ is mode=9 & reg { tmp = *:4 reg; reg = reg + 4; export *:2 tmp; }
 src_l: @(reg)+ is mode=9 & reg { tmp = *:4 reg; reg = reg + 4; export *:4 tmp; }
 
+offset_b: "B^"^simm8 is simm8 { export *[const]:1 simm8; }
+
 # af: byte relative
-#src_l: "B^"^simm8^"(PC)" is mode=10 & reg=15; simm8 { tmp = inst_next + simm8; export *:4 tmp; }
 # ax: byte displacement
-src_l: "B^"^simm8(reg) is mode=10 & reg; simm8 { tmp = reg + simm8; export *:4 tmp; }
+src_b: offset_b(reg) is mode=10 & reg; offset_b { ptr = reg + sext(offset_b); export *:1 ptr; }
+src_w: offset_b(reg) is mode=10 & reg; offset_b { ptr = reg + sext(offset_b); export *:2 ptr; }
+src_l: offset_b(reg) is mode=10 & reg; offset_b { ptr = reg + sext(offset_b); export *:4 ptr; }
 
 # bf: byte relative deferred
-#src_l: "@B^"^simm8^"(PC)" is mode=11 & reg=15; simm8 { tmp = inst_next + simm8; export *:4 tmp; }
 # bx: byte displacement deferred
-src_l: "@B^"^simm8(reg) is mode=11 & reg; simm8 { tmp = reg + simm8; export *:4 tmp; }
+src_b: "@B^"^simm8(reg) is mode=11 & reg; simm8 { tmp = reg + simm8; ptr = *:4 tmp; export *:1 ptr; }
+src_w: "@B^"^simm8(reg) is mode=11 & reg; simm8 { tmp = reg + simm8; ptr = *:4 tmp; export *:2 ptr; }
+src_l: "@B^"^simm8(reg) is mode=11 & reg; simm8 { tmp = reg + simm8; ptr = *:4 tmp; export *:4 ptr; }
 
 # cf: word relative
-#src_l: "W^"^simm16^"(PC)" is mode=12 & reg=15; simm16 { tmp = inst_next + simm16; export *:4 tmp; }
 # cx: word displacement
+src_b: "W^"^simm16(reg) is mode=12 & reg; simm16 { tmp = reg + simm16; export *:1 tmp; }
+src_w: "W^"^simm16(reg) is mode=12 & reg; simm16 { tmp = reg + simm16; export *:2 tmp; }
 src_l: "W^"^simm16(reg) is mode=12 & reg; simm16 { tmp = reg + simm16; export *:4 tmp; }
 
 # df: word relative deferred
-#src_l: "@W^"^simm16^"(PC)" is mode=13 & reg=15; simm16 { tmp = inst_next + simm16; export *:4 tmp; }
 # dx: word displacement deferred
-src_l: "@W^"^simm16(reg) is mode=13 & reg; simm16 { tmp = reg + simm16; export *:4 tmp; }
+src_b: "@W^"^simm16(reg) is mode=13 & reg; simm16 { tmp = reg + simm16; ptr = *:4 tmp; export *:1 ptr; }
+src_w: "@W^"^simm16(reg) is mode=13 & reg; simm16 { tmp = reg + simm16; ptr = *:4 tmp; export *:2 ptr; }
+src_l: "@W^"^simm16(reg) is mode=13 & reg; simm16 { tmp = reg + simm16; ptr = *:4 tmp; export *:4 ptr; }
 
 # ef: longword relative
-#src_l: "L^"^simm32^"(PC)" is mode=14 & reg=15; simm32 { tmp = inst_next + simm32; export *:4 tmp; }
 # ex: longword displacement
+src_b: "L^"^simm32(reg) is mode=14 & reg; simm32 { tmp = reg + simm32; export *:1 tmp; }
+src_w: "L^"^simm32(reg) is mode=14 & reg; simm32 { tmp = reg + simm32; export *:2 tmp; }
 src_l: "L^"^simm32(reg) is mode=14 & reg; simm32 { tmp = reg + simm32; export *:4 tmp; }
 
 # ff: longword relative deferred
-#src_l: "@L^"^simm32^"(PC)" is mode=15 & reg=15; simm32 { tmp = inst_next + simm32; export *:4 tmp; }
 # fx: longword displacement deferred
-src_l: "@L^"^simm32(reg) is mode=15 & reg; simm32 { tmp = reg + simm32; export *:4 tmp; }
+src_b: "@L^"^simm32(reg) is mode=15 & reg; simm32 { tmp = reg + simm32; ptr = *:4 tmp; export *:1 ptr; }
+src_w: "@L^"^simm32(reg) is mode=15 & reg; simm32 { tmp = reg + simm32; ptr = *:4 tmp; export *:2 ptr; }
+src_l: "@L^"^simm32(reg) is mode=15 & reg; simm32 { tmp = reg + simm32; ptr = *:4 tmp; export *:4 ptr; }
 
 #   dest
 
@@ -237,6 +250,7 @@ RelAddr16: loc is simm16 [ loc = inst_next + simm16; ]       { export *:2 loc; }
 # halt
 
 :HALT is opcode=0x0 {
+  goto inst_start;
 }
 
 # branch
@@ -426,28 +440,30 @@ limit.l: src_l is src_l { export src_l; }
 :CASE.b selector.b, base, limit.b is opcode=0x8f; selector.b; base; limit.b {
   offset = 2*(limit.b + 1);
   loc = inst_next + offset;
-#  goto loc;
+  goto [loc];
 }
 :CASE.w selector.w, base, limit.w is opcode=0xaf; selector.w; base; limit.w {
   offset = 2*(limit.w + 1);
   loc = inst_next + offset;
+  goto [loc];
 }
 :CASE.l selector.l, base, limit.l is opcode=0xcf; selector.l; base; limit.l {
   offset = 2*(limit.l + 1);
   loc = inst_next + offset;
+  goto [loc];
 }
 
 # Subtract one and branch
 #  if greater than or equal
-#:SOBGEQ dest_l, RelAddr8 is opcode=0xf4; dest_l; RelAddr8 {
-#  dest_l = dest_l - 1;
-#  if (dest_l >= 0) goto RelAddr8;
-#}
+:SOBGEQ dest_l, RelAddr8 is opcode=0xf4; dest_l; RelAddr8 {
+  dest_l = dest_l - 1;
+  if (dest_l >= 0) goto RelAddr8;
+}
 #  if greater than
-#:SOBGTR dest_l, RelAddr8 is opcode=0xf5; dest_l; RelAddr8 {
-#  dest_l = dest_l - 1;
-#  if (dest_l > 0) goto RelAddr8;
-#}
+:SOBGTR dest_l, RelAddr8 is opcode=0xf5; dest_l; RelAddr8 {
+  dest_l = dest_l - 1;
+  if (dest_l > 0) goto RelAddr8;
+}
 
 # jump
 
