@@ -477,3 +477,12 @@ size_b: src_b is src_b { export src_b; }
 base_b: src_b is src_b { export src_b; }
 :INSV src_l, pos_l, size_b, base_b is opcode=0xf0; src_l; pos_l; size_b; base_b {
 }
+
+# branch bit set/clear
+
+:BBS pos_l, base_b, RelAddr8 is opcode=0xE0; pos_l; base_b; RelAddr8 {
+  goto RelAddr8;
+}
+:BBC pos_l, base_b, RelAddr8 is opcode=0xE1; pos_l; base_b; RelAddr8 {
+  goto RelAddr8;
+}
