@@ -509,16 +509,16 @@ base_b: src_b is src_b { export src_b; }
 }
 
 # move address
-:MOVA.b src_b; dest_l is opcode=0x9e; src_b; dest_l {
+:MOVA.b src_b, dest_l is opcode=0x9e; src_b; dest_l {
   dest_l = sext(src_b);
 }
-:MOVA.w src_w; dest_l is opcode=0x3e; src_w; dest_l {
+:MOVA.w src_w, dest_l is opcode=0x3e; src_w; dest_l {
   dest_l = sext(src_w);
 }
-:MOVA.l src_l; dest_l is opcode=0xde; src_l; dest_l {
+:MOVA.l src_l, dest_l is opcode=0xde; src_l; dest_l {
   dest_l = src_l;
 }
-:MOVA.q src_l; dest_l is opcode=0x7e; src_l; dest_l {
+:MOVA.q src_l, dest_l is opcode=0x7e; src_l; dest_l {
   dest_l = src_l;
 }
 
