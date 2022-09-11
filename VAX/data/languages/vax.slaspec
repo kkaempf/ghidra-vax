@@ -521,3 +521,27 @@ base_b: src_b is src_b { export src_b; }
 :MOVA.q src_l; dest_l is opcode=0x7e; src_l; dest_l {
   dest_l = src_l;
 }
+
+# subtract
+min_b: src_b is src_b { export src_b; }
+min_w: src_w is src_w { export src_w; }
+min_l: src_l is src_l { export src_l; }
+
+:SUBB2 src_b, dest_b is opcode=0x82; src_b; dest_b {
+  dest_b = dest_b - src_b;
+}
+:SUBB3 src_b, min_b, dest_b is opcode=0x83; src_b; min_b; dest_b {
+  dest_b = min_b - src_b;
+}
+:SUBW2 src_w, dest_w is opcode=0xA2; src_w; dest_w {
+  dest_w = dest_w - src_w;
+}
+:SUBW3 src_w, min_w, dest_w is opcode=0xA3; src_w; min_w; dest_w {
+  dest_w = min_w - src_w;
+}
+:SUBL2 src_l, dest_l is opcode=0xC2; src_l; dest_l {
+  dest_l = dest_l - src_l;
+}
+:SUBL3 src_l, min_l, dest_l is opcode=0xC3; src_l; min_l; dest_l {
+  dest_l = min_l - src_l;
+}
