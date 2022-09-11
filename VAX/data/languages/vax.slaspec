@@ -155,9 +155,9 @@ attach variables [ procreg ] [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 PRx07
 # effective addresses
 
 # 0-3: literal
-src_b: "S^#"^litval is mode67=0 & litval { tmp:1 = litval; export tmp; }
-src_w: "S^#"^litval is mode67=0 & litval { tmp:2 = litval; export tmp; }
-src_l: "S^#"^litval is mode67=0 & litval { export litval; }
+src_b: "S^#"^litval is mode67=0 & litval { export *[const]:1 litval; }
+src_w: "S^#"^litval is mode67=0 & litval { export *[const]:2 litval; }
+src_l: "S^#"^litval is mode67=0 & litval { export *[const]:4 litval; }
 
 # 4: indexed
 #src_l: src_l[reg] is mode=4 & reg & src_l { tmp:4 = reg + src_l; export tmp; }
