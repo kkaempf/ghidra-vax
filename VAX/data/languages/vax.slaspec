@@ -36,9 +36,21 @@ macro addcflags(op1,op2,cf) {
  V_F = scarry(op1,op2) ^^ scarry(op1+op2, cf);
 }
 
+macro subcflags(op1,op2,cf) { # FIXME ?
+ C_F = (op1 < op2) || (op1-op2-cf < 0);
+ V_F = sborrow(op1,op2) ^^ sborrow(op1-op2, cf);
+}
+
 macro subflags(op1,op2) {
  C_F = op1 < op2;
  V_F = sborrow(op1,op2);
+}
+
+macro cmpflags(op1,op2) {
+ C_F = op1 < op2;
+ N_F = op1 s< op2;
+ Z_F = op1 == op2;
+ V_F = 0;
 }
 
 # processor registers
@@ -114,10 +126,6 @@ define token octa (64)
 # opcode
 define token opbyte (8)
         opcode  = (0,7)
-        op7     = (7,7)
-        argsize = (5,6)
-        op14    = (1,4)
-        op0     = (0,0)
 ;
 
 # addressing
@@ -302,11 +310,13 @@ eaq: "@L^"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; expor
 rbx: eab is eab { tmp = eab; export tmp; }
 rwx: eaw is eaw { tmp = eaw; export tmp; }
 rlx: eal is eal { tmp = eal; export tmp; }
+rlx2: eal is eal { tmp = eal; export tmp; }
 
 # fixme: ensure writable effective address
 mbx: eab is eab { tmp = eab; export tmp; }
 mwx: eaw is eaw { tmp = eaw; export tmp; }
 mlx: eal is eal { tmp = eal; export tmp; }
+mlx2: eal is eal { tmp = eal; export tmp; }
 mqx: eaq is eaq { tmp = eaq; export tmp; }
 
 :HALT is opcode=0x00 { goto inst_start; }
@@ -314,12 +324,12 @@ mqx: eaq is eaq { tmp = eaq; export tmp; }
 
 :ADAWI eaw, mwx is opcode=0x58; eaw; mwx { addflags(eaw, mwx); tmp = eaw + mwx; mwx = tmp; resflags(tmp); }
 
-:ADDB2 eab, mbx is (op7=1 & argsize=0 & op14=0 & op0=0); eab; mbx { addflags(eab, mbx); tmp = eab + mbx; mbx = tmp; resflags(tmp); }
-:ADDB3 eab, rbx, mbx is (op7=1 & argsize=0 & op14=0 & op0=1); eab; rbx; mbx { addflags(eab, rbx); tmp = eab + rbx; mbx = tmp; resflags(tmp); }
-:ADDW2 eaw, mwx is (op7=1 & argsize=1 & op14=0 & op0=0); eaw; mwx { addflags(eaw, mwx); tmp = eaw + mwx; mwx = tmp; resflags(tmp); }
-:ADDW3 eaw, rwx, mwx is (op7=1 & argsize=1 & op14=0 & op0=1); eaw; rwx; mwx { addflags(eaw, rwx); tmp = eaw + rwx; mwx = tmp; resflags(tmp); }
-:ADDL2 eal, mlx is (op7=1 & argsize=2 & op14=0 & op0=0); eal; mlx { addflags(eal, mlx); tmp = eal + mlx; mlx = tmp; resflags(tmp); }
-:ADDL3 eal, rlx, mlx is (op7=1 & argsize=2 & op14=0 & op0=1); eal; rlx; mlx { addflags(eal, rlx); tmp = eal + rlx; mlx = tmp; resflags(tmp); }
+:ADDB2 eab, mbx is opcode=0x80; eab; mbx { addflags(eab, mbx); tmp = eab + mbx; mbx = tmp; resflags(tmp); }
+:ADDB3 eab, rbx, mbx is opcode=0x81; eab; rbx; mbx { addflags(eab, rbx); tmp = eab + rbx; mbx = tmp; resflags(tmp); }
+:ADDW2 eaw, mwx is opcode=0xa0; eaw; mwx { addflags(eaw, mwx); tmp = eaw + mwx; mwx = tmp; resflags(tmp); }
+:ADDW3 eaw, rwx, mwx is opcode=0xa1; eaw; rwx; mwx { addflags(eaw, rwx); tmp = eaw + rwx; mwx = tmp; resflags(tmp); }
+:ADDL2 eal, mlx is opcode=0xc0; eal; mlx { addflags(eal, mlx); tmp = eal + mlx; mlx = tmp; resflags(tmp); }
+:ADDL3 eal, rlx, mlx is opcode=0xc1; eal; rlx; mlx { addflags(eal, rlx); tmp = eal + rlx; mlx = tmp; resflags(tmp); }
 
 :ADWC eal, mlx is opcode=0xD8; eal; mlx { cf:4 = zext(C_F); addcflags(eal, mlx, cf); tmp = eal + mlx + cf; mlx = tmp; resflags(tmp); }
 
@@ -370,9 +380,281 @@ mqx: eaq is eaq { tmp = eaq; export tmp; }
   C_F = 0;
 }
 
-#:BICB2 eab, mbx is opcode=0x8a & eab & mbx { tmp:1 = mbx & ~(eab); mbx = tmp; resflags(tmp); }
-#:BICB3 eab, rbx, mbx is opcode=0x8b & eab & rbx & mbx { }
-#:BICW2 eaw, mwx is opcode=0xaa & eaw & mwx { }
-#:BICW3 eaw, rwx, mwx is opcode=0xab & eaw & rwx & mwx { }
-#:BICL2 eal, mlx is opcode=0xca & eal & mlx { }
-#:BICL3 eal, rlx, mlx is opcode=0xcb & eal & rlx & mlx { }
+:BICB2 eab, mbx is opcode=0x8a; eab; mbx { tmp:1 = mbx & ~(eab); mbx = tmp; resflags(tmp); V_F = 0; }
+:BICB3 eab, rbx, mbx is opcode=0x8b; eab; rbx; mbx { tmp:1 = rbx & ~(eab); mbx = tmp; resflags(tmp); V_F = 0; }
+:BICW2 eaw, mwx is opcode=0xaa; eaw; mwx { tmp:2 = mwx & ~(eaw); mwx = tmp; resflags(tmp); V_F = 0; }
+:BICW3 eaw, rwx, mwx is opcode=0xab; eaw; rwx; mwx { tmp:2 = rwx & ~(eaw); mwx = tmp; resflags(tmp); V_F = 0; }
+:BICL2 eal, mlx is opcode=0xca; eal; mlx { tmp:4 = mlx & ~(eal); mlx = tmp; resflags(tmp); V_F = 0; }
+:BICL3 eal, rlx, mlx is opcode=0xcb; eal; rlx; mlx { tmp:4 = rlx & ~(eal); mlx = tmp; resflags(tmp); V_F = 0; }
+
+:BISB2 eab, mbx is opcode=0x88; eab; mbx { tmp:1 = mbx | eab; mbx = tmp; resflags(tmp); V_F = 0; }
+:BISB3 eab, rbx, mbx is opcode=0x89; eab; rbx; mbx { tmp:1 = rbx | eab; mbx = tmp; resflags(tmp); V_F = 0; }
+:BISW2 eaw, mwx is opcode=0xa8; eaw; mwx { tmp:2 = mwx | eaw; mwx = tmp; resflags(tmp); V_F = 0; }
+:BISW3 eaw, rwx, mwx is opcode=0xa9; eaw; rwx; mwx { tmp:2 = rwx | eaw; mwx = tmp; resflags(tmp); V_F = 0; }
+:BISL2 eal, mlx is opcode=0xc8; eal; mlx { tmp:4 = mlx | eal; mlx = tmp; resflags(tmp); V_F = 0; }
+:BISL3 eal, rlx, mlx is opcode=0xc9; eal; rlx; mlx { tmp:4 = rlx | eal; mlx = tmp; resflags(tmp); V_F = 0; }
+
+:BIZB2 eab, rbx is opcode=0x93; eab; rbx { tmp:1 = rbx & eab; resflags(tmp); V_F = 0; }
+:BITW2 eaw, rwx is opcode=0xb3; eaw; rwx { tmp:2 = rwx & eaw; resflags(tmp); V_F = 0; }
+:BITL2 eal, rlx is opcode=0xd3; eal; rlx { tmp:4 = rlx & eal; resflags(tmp); V_F = 0; }
+
+:CLRB eab is opcode=0x94; eab { eab = 0; N_F = 0; Z_F = 1; V_F = 1; }
+:CLRW eaw is opcode=0xb4; eaw { eaw = 0; N_F = 0; Z_F = 1; V_F = 1; }
+:CLRL eal is opcode=0xd4; eal { eal = 0; N_F = 0; Z_F = 1; V_F = 1; }
+:CLRQ eaq is opcode=0x7c; eaq { eaq = 0; N_F = 0; Z_F = 1; V_F = 1; }
+#:CLRO eao is opcodew=0x7CFD
+
+:CMPB eab, rbx is opcode=0x91; eab; rbx { cmpflags(eab, rbx); }
+:CMPW eaw, rwx is opcode=0xb1; eaw; rwx { cmpflags(eaw, rwx); }
+:CMPL eal, rlx is opcode=0xD1; eal; rlx { cmpflags(eal, rlx); }
+
+:CVTBW eab, mwx is opcode=0x99; eab; mwx { tmp:2 = sext(eab); mwx = tmp; resflags(tmp); C_F = 0; }
+:CVTBL eab, mlx is opcode=0x98; eab; mlx { tmp:4 = sext(eab); mlx = tmp; resflags(tmp); C_F = 0; }
+:CVTWL eaw, mlx is opcode=0x32; eaw; mlx { tmp:4 = sext(eaw); mlx = tmp; resflags(tmp); C_F = 0; }
+:CVTWB eaw, mbx is opcode=0x33; eaw; mbx {
+  tmp = eaw:1;
+  remaining:2 = (eaw & 0xff00);
+  tmpsign = (tmp & 0x80);
+  if (tmpsign == 0) goto <must_be_positive>;
+  V_F = !(remaining == 0xff00);
+  goto <end>;
+<must_be_positive>
+  V_F = !(remaining == 0);
+<end>
+  mbx = tmp;
+  resflags(tmp);
+  C_F = 0;
+}
+:CVTLB eal, mbx is opcode=0xf6; eal; mbx {
+  tmp = eal:1;
+  remaining:4 = (eal & 0xffffff00);
+  tmpsign = (tmp & 0x80);
+  if (tmpsign == 0) goto <must_be_positive>;
+  V_F = !(remaining == 0xffffff00);
+  goto <end>;
+<must_be_positive>
+  V_F = !(remaining == 0);
+<end>
+  mbx = tmp;
+  resflags(tmp);
+  C_F = 0;
+}
+:CVTLW eal, mwx is opcode=0xf7; eal; mwx {
+  tmp = eal:2;
+  remaining:4 = (eal & 0xffff0000);
+  tmpsign = (tmp & 0x80);
+  if (tmpsign == 0) goto <must_be_positive>;
+  V_F = !(remaining == 0xffff0000);
+  goto <end>;
+<must_be_positive>
+  V_F = !(remaining == 0);
+<end>
+  mwx = tmp;
+  resflags(tmp);
+  C_F = 0;
+}
+
+:DECB mbx is opcode=0x97; mbx {
+  if (mbx == 0x80) goto <underflow>;
+  if (mbx == 0) goto <negative>;
+  mbx = mbx - 1;
+  goto <end>;
+<underflow>
+  mbx = 0x7f;
+  V_F = 1;
+  C_F = 0;
+  goto <end>;
+<negative>
+  mbx = 0xff;
+  C_F = 1;
+  V_F = 0;
+<end>
+  resflags(mbx);
+}
+:DECW mwx is opcode=0xb7; mwx {
+  if (mwx == 0x8000) goto <underflow>;
+  if (mwx == 0) goto <negative>;
+  mwx = mwx - 1;
+  goto <end>;
+<underflow>
+  mwx = 0x7fff;
+  V_F = 1;
+  C_F = 0;
+  goto <end>;
+<negative>
+  mwx = 0xffff;
+  C_F = 1;
+  V_F = 0;
+<end>
+  resflags(mwx);
+}
+:DECL mlx is opcode=0xd7; mlx {
+  if (mlx == 0x80000000) goto <underflow>;
+  if (mlx == 0) goto <negative>;
+  mlx = mlx - 1;
+  goto <end>;
+<underflow>
+  mlx = 0x7fffffff;
+  V_F = 1;
+  C_F = 0;
+  goto <end>;
+<negative>
+  mlx = 0xffffffff;
+  C_F = 1;
+  V_F = 0;
+<end>
+  resflags(mlx);
+}
+
+:DIVB2 eab, mbx is opcode=0x86; eab; mbx { mbx = mbx / eab; C_F = 0; resflags(mbx); } # FIXME V_F
+:DIVB3 eab, rbx, mbx is opcode=0x87; eab; rbx; mbx { mbx = rbx / eab; C_F = 0; resflags(mbx); } # FIXME V_F
+:DIVW2 eaw, mwx is opcode=0xa6; eaw; mwx { mwx = mwx / eaw; C_F = 0; resflags(mwx); } # FIXME V_F
+:DIVW3 eaw, rwx, mwx is opcode=0xa7; eaw; rwx; mwx { mwx = rwx / eaw; C_F = 0; resflags(mwx); } # FIXME V_F
+:DIVL2 eal, mlx is opcode=0xc6; eal; mlx { mlx = mlx / eal; C_F = 0; resflags(mlx); } # FIXME V_F
+:DIVL3 eal, rlx, mlx is opcode=0xc7; eal; rlx; mlx { mlx = rlx / eal; C_F = 0; resflags(mlx); } # FIXME V_F
+
+:EDIV eal, eaq, mlx, mlx2 is opcode=0x7b; eal; eaq; mlx; mlx2 { divr:8 = sext(eal); quo = eaq / divr; mlx = quo:4; rem = eaq % divr; mlx2 = rem:4; C_F = 0; resflags(mlx); } # FIXME V_F
+:EMUL eal, rlx, rlx2, mqx is opcode=0x7a; eal; rlx; rlx2; mqx { mqx = sext(rlx * eal) + sext(rlx2); V_F = 0; C_F = 0; resflags(mqx); }
+
+:INCB mbx is opcode=0x96; mbx {
+  if (mbx == 0x7f) goto <overflow>;
+  if (mbx == 0xff) goto <positive>;
+  mbx = mbx + 1;
+  goto <end>;
+<overflow>
+  mbx = 0x80;
+  V_F = 1;
+  C_F = 0;
+  goto <end>;
+<positive>
+  mbx = 0;
+  C_F = 1;
+  V_F = 0;
+<end>
+  resflags(mbx);
+}
+:INCW mwx is opcode=0xb6; mwx {
+  if (mwx == 0x7fff) goto <overflow>;
+  if (mwx == 0xffff) goto <positive>;
+  mwx = mwx + 1;
+  goto <end>;
+<overflow>
+  mwx = 0x8000;
+  V_F = 1;
+  C_F = 0;
+  goto <end>;
+<positive>
+  mwx = 0;
+  C_F = 1;
+  V_F = 0;
+<end>
+  resflags(mwx);
+}
+:INCL mlx is opcode=0xd6; mlx {
+  if (mlx == 0x7fffffff) goto <overflow>;
+  if (mlx == 0xffffffff) goto <positive>;
+  mlx = mlx + 1;
+  goto <end>;
+<overflow>
+  mlx = 0x80000000;
+  V_F = 1;
+  C_F = 0;
+  goto <end>;
+<positive>
+  mlx = 0;
+  C_F = 1;
+  V_F = 0;
+<end>
+  resflags(mlx);
+}
+
+:MCOMB eab, mbx is opcode=0x92; eab; mbx { mbx = ~eab; V_F = 0; resflags(mbx); }
+:MCOMW eaw, mwx is opcode=0xb2; eaw; mwx { mwx = ~eaw; V_F = 0; resflags(mwx); }
+:MCOML eal, mlx is opcode=0xd2; eal; mlx { mlx = ~eal; V_F = 0; resflags(mlx); }
+
+:MNEGB eab, mbx is opcode=0x8e; eab; mbx {
+  if (eab == 0x80) goto <overflow>;
+  mbx = -eab;
+  goto <end>;
+<overflow>
+  mbx = eab;
+<end>
+  V_F = 0; resflags(mbx);
+}
+:MNEGW eaw, mwx is opcode=0xae; eaw; mwx {
+  if (eaw == 0x8000) goto <overflow>;
+  mwx = -eaw;
+  goto <end>;
+<overflow>
+  mwx = eaw;
+<end>
+  V_F = 0; resflags(mwx);
+}
+:MNEGL eal, mlx is opcode=0xce; eal; mlx {
+  if (eal == 0x80000000) goto <overflow>;
+  mlx = -eal;
+  goto <end>;
+<overflow>
+  mlx = eal;
+<end>
+  V_F = 0; resflags(mlx);
+}
+
+:MOVB eab, mbx is opcode=0x90; eab; mbx { mbx = eab; V_F = 0; resflags(mbx); }
+:MOVW eaw, mwx is opcode=0xb0; eaw; mwx { mwx = eaw; V_F = 0; resflags(mwx); }
+:MOVL eal, mlx is opcode=0xd0; eal; mlx { mlx = eal; V_F = 0; resflags(mlx); }
+:MOVQ eaq, mqx is opcode=0x7d; eaq; mqx { mqx = eaq; V_F = 0; resflags(mqx); }
+#:MOVO FIXME
+
+:MOVZBW eab, mwx is opcode=0x9b; eab; mwx { mwx = zext(eab); resflags(mwx); N_F = 0; V_F = 0; }
+:MOVZBL eab, mlx is opcode=0x9a; eab; mlx { mlx = zext(eab); resflags(mlx); N_F = 0; V_F = 0; }
+:MOVZWL eaw, mlx is opcode=0x3c; eaw; mlx { mlx = zext(eaw); resflags(mlx); N_F = 0; V_F = 0; }
+
+:MULB2 eab, mbx is opcode=0x84; eab; mbx { mbx = mbx * eab; C_F = 0; resflags(mbx); } # FIXME V_F
+:MULB3 eab, rbx, mbx is opcode=0x85; eab; rbx; mbx { mbx = rbx * eab; C_F = 0; resflags(mbx); } # FIXME V_F
+:MULW2 eaw, mwx is opcode=0xa4; eaw; mwx { mwx = mwx * eaw; C_F = 0; resflags(mwx); } # FIXME V_F
+:MULW3 eaw, rwx, mwx is opcode=0xa5; eaw; rwx; mwx { mwx = rwx * eaw; C_F = 0; resflags(mwx); } # FIXME V_F
+:MULL2 eal, mlx is opcode=0xc4; eal; mlx { mlx = mlx * eal; C_F = 0; resflags(mlx); } # FIXME V_F
+:MULL3 eal, rlx, mlx is opcode=0xc5; eal; rlx; mlx { mlx = rlx * eal; C_F = 0; resflags(mlx); } # FIXME V_F
+
+:PUSHL eal is opcode=0xdd; eal { SP = SP - 4; *:4 SP = eal; V_F = 0; resflags(eal); }
+
+:ROTL eab, eal, mlx is opcode=0x9c; eab; eal; mlx {
+  if (eab s> 0) goto <rotate_left>;
+  if (eab s< 0) goto <rotate_right>;
+  mlx = eal;
+  goto <end>;
+<rotate_left>
+  shifted = eal << eab;
+  rot_bits = eal >> (32-eab);
+  mlx = shifted | rot_bits;
+  goto <end>;
+<rotate_right>
+  shifted = eal >> eab;
+  rot_bits = eal << (32+eab); # eab is negative
+  mlx = shifted | rot_bits;
+<end>
+  V_F = 0;
+  resflags(mlx);
+}
+
+:SBWC eal, mlx is opcode=0xD9; eal; mlx { cf:4 = zext(C_F); subcflags(eal, mlx, cf); tmp = eal - mlx - cf; mlx = tmp; resflags(tmp); }
+
+:SUBB2 eab, mbx is opcode=0x82; eab; mbx { subflags(eab, mbx); tmp = eab - mbx; mbx = tmp; resflags(tmp); }
+:SUBB3 eab, rbx, mbx is opcode=0x83; eab; rbx; mbx { subflags(eab, rbx); tmp = eab - rbx; mbx = tmp; resflags(tmp); }
+:SUBW2 eaw, mwx is opcode=0xa2; eaw; mwx { subflags(eaw, mwx); tmp = eaw - mwx; mwx = tmp; resflags(tmp); }
+:SUBW3 eaw, rwx, mwx is opcode=0xa3; eaw; rwx; mwx { subflags(eaw, rwx); tmp = eaw - rwx; mwx = tmp; resflags(tmp); }
+:SUBL2 eal, mlx is opcode=0xc2; eal; mlx { subflags(eal, mlx); tmp = eal - mlx; mlx = tmp; resflags(tmp); }
+:SUBL3 eal, rlx, mlx is opcode=0xc3; eal; rlx; mlx { subflags(eal, rlx); tmp = eal - rlx; mlx = tmp; resflags(tmp); }
+
+:TSTB eab is opcode=0x95; eab { V_F = 0; C_F = 0; resflags(eab); }
+:TSTW eaw is opcode=0xb5; eaw { V_F = 0; C_F = 0; resflags(eaw); }
+:TSTL eal is opcode=0xd5; eal { V_F = 0; C_F = 0; resflags(eal); }
+
+:XORB2 eab, mbx is opcode=0x8c; eab; mbx { tmp = eab ^ mbx; mbx = tmp; V_F = 0; resflags(tmp); }
+:XORB3 eab, rbx, mbx is opcode=0x8d; eab; rbx; mbx { tmp = eab ^ rbx; mbx = tmp; V_F = 0; resflags(tmp); }
+:XORW2 eaw, mwx is opcode=0xac; eaw; mwx { tmp = eaw ^ mwx; mwx = tmp; V_F = 0; resflags(tmp); }
+:XORW3 eaw, rwx, mwx is opcode=0xad; eaw; rwx; mwx { tmp = eaw ^ rwx; mwx = tmp; V_F = 0; resflags(tmp); }
+:XORL2 eal, mlx is opcode=0xcc; eal; mlx { tmp = eal ^ mlx; mlx = tmp; V_F = 0; resflags(tmp); }
+:XORL3 eal, rlx, mlx is opcode=0xcd; eal; rlx; mlx { tmp = eal ^ rlx; mlx = tmp; V_F = 0; resflags(tmp); }
+
