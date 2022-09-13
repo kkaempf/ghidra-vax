@@ -18,6 +18,29 @@ define register offset=0x40 size=4 [ PSL ];
 # processor status word
 define register offset=0x40 size=2 [ _ PSW ];
 
+# condition flags
+define register offset=0x50 size=1   [ IS_F CUR_MOD PRV_MOD IPL_F DV_F FU_F IV_F T_F N_F Z_F V_F C_F ];
+
+macro resflags(result) {
+ N_F = result s< 0;
+ Z_F = result == 0;
+}
+
+macro addflags(op1,op2) {
+ C_F = carry(op1,op2);
+ V_F = scarry(op1,op2);
+}
+
+macro addcflags(op1,op2,cf) {
+ C_F = carry(op1,op2) || carry(op1+op2, cf);
+ V_F = scarry(op1,op2) ^^ scarry(op1+op2, cf);
+}
+
+macro subflags(op1,op2) {
+ C_F = op1 < op2;
+ V_F = sborrow(op1,op2);
+}
+
 # processor registers
 define register offset=0x100 size=4 [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 PRx07
                                P0BR  P0LR  P1BR  P1LR  SBR   SLR   CPUID PRx0f
@@ -52,16 +75,6 @@ define register offset=0x100 size=4 [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 
                                PRxf0 PRxf1 PRxf2 PRxf3 PRxf4 PRxf5 PRxf6 PRxf7
                                PRxf8 PRxf9 PRxfa PRxfb PRxfc PRxfd PRxfe PRxff
                                ];
-
-# status bits within PSW
-@define C  "PSW[0,1]" # Carry
-@define V  "PSW[1,1]" # Overflow
-@define Z  "PSW[2,1]" # Zero
-@define N  "PSW[3,1]" # Negative
-@define T  "PSW[4,1]" # Trace enable
-@define IV "PSW[5,1]" # integer overflow enable
-@define FU "PSW[6,1]" # floating underflow enable
-@define DV "PSW[7,1]" # decimal overflow enable
 
 # 8bit immediate - byte
 define token byte (8)
@@ -100,7 +113,11 @@ define token octa (64)
 
 # opcode
 define token opbyte (8)
-        opcode = (0,7)
+        opcode  = (0,7)
+        op7     = (7,7)
+        argsize = (5,6)
+        op14    = (1,4)
+        op0     = (0,0)
 ;
 
 # addressing
@@ -152,396 +169,210 @@ attach variables [ procreg ] [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 PRx07
                                PRxf8 PRxf9 PRxfa PRxfb PRxfc PRxfd PRxfe PRxff
                                ];
 
+define register offset=0x1000 size=1  [ contextreg ];
+define register offset=0x1004 size=4  [ loc ];
+
+reladdr8: loc is simm8  [ loc = inst_next + simm8; ] { ptr:4 = loc; export ptr; }
+reladdr16: loc is simm16  [ loc = inst_next + simm16; ] { ptr:4 = loc; export ptr; }
+reladdr32: loc is simm32  [ loc = inst_next + simm32; ] { ptr:4 = loc; export ptr; }
+
+
 # effective addresses
 
-# 0-3: literal
-src_b: "S^#"^litval is mode67=0 & litval { export *[const]:1 litval; }
-src_w: "S^#"^litval is mode67=0 & litval { export *[const]:2 litval; }
-src_l: "S^#"^litval is mode67=0 & litval { export *[const]:4 litval; }
+#  byte
+#   0-3: literal
+eab: "S^#"^litval is mode67=0 & litval { export *[const]:1 litval; }
+#   4: indexed - see below
+#   5: register
+eab: reg is mode=5 & reg { tmp:1 = reg:1; export tmp; }
+#   6: register deferred
+eab: (reg) is mode=6 & reg { export *:1 reg; }
+#   7: auto decrement
+eab: -(reg) is mode=7 & reg { reg = reg - 1; export *:1 reg; }
+#   8: auto increment
+eab: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 1; export *:1 ptr; }
+#   8: immediate mode
+eab: "I^#"^simm8 is mode=8 & reg=15; simm8 { loc = inst_next + 1; inst_next = loc; export simm8; } 
+#   9: auto increment deferred
+eab: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 4; export *:1 tmp; }
+#   9: absolute
+eab: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export *:1 tmp; }
+#   10: byte displacement
+eab: "B^"^simm8(reg) is mode=10 & reg; simm8 { ptr = reg + simm8; export *:1 ptr; }
+#   10: byte relative
+eab: "B^"^reladdr8 is mode=10 & reg=15; reladdr8 { export *:1 reladdr8; }
+#   11: byte displacement deferred
+eab: "@B^"^simm8(reg) is mode=11 & reg; simm8 { oa = reg + simm8; ptr = *:4 oa; export *:1 ptr; }
+#   11: byte relative deferred
+eab: "@B^"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export *:1 ptr; }
+#   12: word displacement
+eab: "W^"^simm16(reg) is mode=12 & reg; simm16 { ptr = reg + simm16; export *:1 ptr; }
+#   12: word relative
+eab: "W^"^reladdr16 is mode=12 & reg=15; reladdr16 { export *:1 reladdr16; }
+#   13: word displacement deferred
+eab: "@W^"^simm16(reg) is mode=13 & reg; simm16 { oa = reg + simm16; ptr = *:4 oa; export *:1 ptr; }
+#   13: word relative deferred
+eab: "@W^"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export *:1 ptr; }
+#   14: long displacement
+eab: "L^"^simm32(reg) is mode=14 & reg; simm32 { ptr = reg + simm32; export *:1 ptr; }
+#   14: long relative
+eab: "L^"^reladdr32 is mode=14 & reg=15; reladdr32 { export *:1 reladdr32; }
+#   15: long displacement deferred
+eab: "@L^"^simm32(reg) is mode=15 & reg; simm32 { oa = reg + simm32; ptr = *:4 oa; export *:1 ptr; }
+#   15: long relative deferred
+eab: "@L^"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export *:1 ptr; }
 
-# 4: indexed
-#src_l: src_l[reg] is mode=4 & reg & src_l { tmp:4 = reg + src_l; export tmp; }
+#  word
+eaw: "S^#"^litval is mode67=0 & litval { export *[const]:2 litval; }
+eaw: reg is mode=5 & reg { tmp:2 = reg:2; export tmp; }
+eaw: (reg) is mode=6 & reg { export *:2 reg; }
+eaw: -(reg) is mode=7 & reg { reg = reg - 2; export *:2 reg; }
+eaw: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 2; export *:2 ptr; }
+eaw: "I^#"^simm16 is mode=8 & reg=15; simm16 { loc = inst_next + 2; inst_next = loc; export simm16; } 
+eaw: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 4; export *:2 tmp; }
+eaw: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export *:2 tmp; }
+eaw: "B^"^simm8(reg) is mode=10 & reg; simm8 { ptr = reg + simm8; export *:2 ptr; }
+eaw: "B^"^reladdr8 is mode=10 & reg=15; reladdr8 { export *:2 reladdr8; }
+eaw: "@B^"^simm8(reg) is mode=11 & reg; simm8 { oa = reg + simm8; ptr = *:4 oa; export *:2 ptr; }
+eaw: "@B^"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export *:2 ptr; }
+eaw: "W^"^simm16(reg) is mode=12 & reg; simm16 { ptr = reg + simm16; export *:2 ptr; }
+eaw: "W^"^reladdr16 is mode=12 & reg=15; reladdr16 { export *:2 reladdr16; }
+eaw: "@W^"^simm16(reg) is mode=13 & reg; simm16 { oa = reg + simm16; ptr = *:4 oa; export *:2 ptr; }
+eaw: "@W^"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export *:2 ptr; }
+eaw: "L^"^simm32(reg) is mode=14 & reg; simm32 { ptr = reg + simm32; export *:2 ptr; }
+eaw: "L^"^reladdr32 is mode=14 & reg=15; reladdr32 { export *:2 reladdr32; }
+eaw: "@L^"^simm32(reg) is mode=15 & reg; simm32 { oa = reg + simm32; ptr = *:4 oa; export *:2 ptr; }
+eaw: "@L^"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export *:2 ptr; }
 
-# 5: register
-src_b: reg is mode=5 & reg { tmp:1 = reg:1; export tmp; }
-src_w: reg is mode=5 & reg { tmp:2 = reg:2; export tmp; }
-src_l: reg is mode=5 & reg { export reg; }
+#  long
+eal: "S^#"^litval is mode67=0 & litval { export *[const]:4 litval; }
+eal: reg is mode=5 & reg { export reg; }
+eal: (reg) is mode=6 & reg { export *reg; }
+eal: -(reg) is mode=7 & reg { reg = reg - 4; export *reg; }
+eal: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 4; export *ptr; }
+eal: "I^#"^simm32 is mode=8 & reg=15; simm32 { loc = inst_next + 4; inst_next = loc; export simm32; } 
+eal: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 4; export *:4 tmp; }
+eal: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export *:4 tmp; }
+eal: "B^"^simm8(reg) is mode=10 & reg; simm8 { ptr = reg + simm8; export *:4 ptr; }
+eal: "B^"^reladdr8 is mode=10 & reg=15; reladdr8 { export *:4 reladdr8; }
+eal: "@B^"^simm8(reg) is mode=11 & reg; simm8 { oa = reg + simm8; ptr = *:4 oa; export *:4 ptr; }
+eal: "@B^"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export *:4 ptr; }
+eal: "W^"^simm16(reg) is mode=12 & reg; simm16 { ptr = reg + simm16; export *:4 ptr; }
+eal: "W^"^reladdr16 is mode=12 & reg=15; reladdr16 { export *:4 reladdr16; }
+eal: "@W^"^simm16(reg) is mode=13 & reg; simm16 { oa = reg + simm16; ptr = *:4 oa; export *:4 ptr; }
+eal: "@W^"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export *:4 ptr; }
+eal: "L^"^simm32(reg) is mode=14 & reg; simm32 { ptr = reg + simm32; export *:4 ptr; }
+eal: "L^"^reladdr32 is mode=14 & reg=15; reladdr32 { export *:4 reladdr32; }
+eal: "@L^"^simm32(reg) is mode=15 & reg; simm32 { oa = reg + simm32; ptr = *:4 oa; export *:4 ptr; }
+eal: "@L^"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export *:4 ptr; }
 
-# 6: register deferred
-src_b: (reg) is mode=6 & reg { export *:1 reg; }
-src_w: (reg) is mode=6 & reg { export *:2 reg; }
-src_l: (reg) is mode=6 & reg { export *reg; }
-
-# 7x: auto decrement
-src_b: -(reg) is mode=7 & reg { reg = reg - 1; export *:1 reg; }
-src_w: -(reg) is mode=7 & reg { reg = reg - 2; export *:2 reg; }
-src_l: -(reg) is mode=7 & reg { reg = reg - 4; export *reg; }
-
-# 8f immediate
-src_b: "I^#"^simm32 is mode=8 & reg=15; simm32 { tmp:1 = simm32; export tmp; } 
-# 8x: auto increment
-src_b: (reg)+ is mode=8 & reg { tmp = reg; reg = reg + 1; export *:1 tmp; }
-src_w: "I^#"^simm32 is mode=8 & reg=15; simm32 { export simm32; }
-src_w: (reg)+ is mode=8 & reg { tmp = reg; reg = reg + 2; export *:2 tmp; }
-src_l: "I^#"^simm32 is mode=8 & reg=15; simm32 { export simm32; }
-src_l: (reg)+ is mode=8 & reg { tmp = reg; reg = reg + 4; export *:4 tmp; }
-                
-# 9f: absolute
-src_b: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export *:1 tmp; }
-src_w: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export *:2 tmp; }
-src_l: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export *:4 tmp; }
-# 9x: auto increment deferred
-src_b: @(reg)+ is mode=9 & reg { tmp = *:4 reg; reg = reg + 4; export *:1 tmp; }
-src_w: @(reg)+ is mode=9 & reg { tmp = *:4 reg; reg = reg + 4; export *:2 tmp; }
-src_l: @(reg)+ is mode=9 & reg { tmp = *:4 reg; reg = reg + 4; export *:4 tmp; }
-
-offset_b: "B^"^simm8 is simm8 { export *[const]:1 simm8; }
-
-# af: byte relative
-# ax: byte displacement
-src_b: offset_b(reg) is mode=10 & reg; offset_b { ptr = reg + sext(offset_b); export *:1 ptr; }
-src_w: offset_b(reg) is mode=10 & reg; offset_b { ptr = reg + sext(offset_b); export *:2 ptr; }
-src_l: offset_b(reg) is mode=10 & reg; offset_b { ptr = reg + sext(offset_b); export *:4 ptr; }
-
-# bf: byte relative deferred
-# bx: byte displacement deferred
-src_b: "@B^"^simm8(reg) is mode=11 & reg; simm8 { tmp = reg + simm8; ptr = *:4 tmp; export *:1 ptr; }
-src_w: "@B^"^simm8(reg) is mode=11 & reg; simm8 { tmp = reg + simm8; ptr = *:4 tmp; export *:2 ptr; }
-src_l: "@B^"^simm8(reg) is mode=11 & reg; simm8 { tmp = reg + simm8; ptr = *:4 tmp; export *:4 ptr; }
-
-# cf: word relative
-# cx: word displacement
-src_b: "W^"^simm16(reg) is mode=12 & reg; simm16 { tmp = reg + simm16; export *:1 tmp; }
-src_w: "W^"^simm16(reg) is mode=12 & reg; simm16 { tmp = reg + simm16; export *:2 tmp; }
-src_l: "W^"^simm16(reg) is mode=12 & reg; simm16 { tmp = reg + simm16; export *:4 tmp; }
-
-# df: word relative deferred
-# dx: word displacement deferred
-src_b: "@W^"^simm16(reg) is mode=13 & reg; simm16 { tmp = reg + simm16; ptr = *:4 tmp; export *:1 ptr; }
-src_w: "@W^"^simm16(reg) is mode=13 & reg; simm16 { tmp = reg + simm16; ptr = *:4 tmp; export *:2 ptr; }
-src_l: "@W^"^simm16(reg) is mode=13 & reg; simm16 { tmp = reg + simm16; ptr = *:4 tmp; export *:4 ptr; }
-
-# ef: longword relative
-# ex: longword displacement
-src_b: "L^"^simm32(reg) is mode=14 & reg; simm32 { tmp = reg + simm32; export *:1 tmp; }
-src_w: "L^"^simm32(reg) is mode=14 & reg; simm32 { tmp = reg + simm32; export *:2 tmp; }
-src_l: "L^"^simm32(reg) is mode=14 & reg; simm32 { tmp = reg + simm32; export *:4 tmp; }
-
-# ff: longword relative deferred
-# fx: longword displacement deferred
-src_b: "@L^"^simm32(reg) is mode=15 & reg; simm32 { tmp = reg + simm32; ptr = *:4 tmp; export *:1 ptr; }
-src_w: "@L^"^simm32(reg) is mode=15 & reg; simm32 { tmp = reg + simm32; ptr = *:4 tmp; export *:2 ptr; }
-src_l: "@L^"^simm32(reg) is mode=15 & reg; simm32 { tmp = reg + simm32; ptr = *:4 tmp; export *:4 ptr; }
-
-#   dest
-
-dest_b: src_b is src_b { export src_b; }
-dest_w: src_w is src_w { export src_w; }
-dest_l: src_l is src_l { export src_l; }
-
-op3_b: src_b is src_b { export src_b; }
-op3_w: src_w is src_w { export src_w; }
-op3_l: src_l is src_l { export src_l; }
-
-# relative addresses, 8 bit and 16 bit
-RelAddr8:  loc is simm8  [ loc = inst_next + simm8; ]        { export *:1 loc; }
-RelAddr16: loc is simm16 [ loc = inst_next + simm16; ]       { export *:2 loc; }
-
-# halt
-
-:HALT is opcode=0x0 {
-  goto inst_start;
+#  quad
+eaq: "S^#"^litval is mode67=0 & litval { export *[const]:8 litval; }
+eaq: reg is mode=5 & reg {
+  reg1:4 = *[register]:4 (reg+1);
+  tmp:8 = zext(reg) + zext(reg1 << 32);
+  export tmp;
 }
+eaq: (reg) is mode=6 & reg { export *:8 reg; }
+eaq: -(reg) is mode=7 & reg { reg = reg - 8; export *:8 reg; }
+eaq: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 8; export *:8 ptr; }
+eaq: "I^#"^simm64 is mode=8 & reg=15; simm64 { loc = inst_next + 8; inst_next = loc; export simm64; } 
+eaq: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 8; export *:8 tmp; }
+eaq: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:8 ptr; export *:8 tmp; }
+eaq: "B^"^simm8(reg) is mode=10 & reg; simm8 { ptr = reg + simm8; export *:8 ptr; }
+eaq: "B^"^reladdr8 is mode=10 & reg=15; reladdr8 { export *:8 reladdr8; }
+eaq: "@B^"^simm8(reg) is mode=11 & reg; simm8 { oa = reg + simm8; ptr = *:4 oa; export *:8 ptr; }
+eaq: "@B^"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export *:8 ptr; }
+eaq: "W^"^simm16(reg) is mode=12 & reg; simm16 { ptr = reg + simm16; export *:8 ptr; }
+eaq: "W^"^reladdr16 is mode=12 & reg=15; reladdr16 { export *:8 reladdr16; }
+eaq: "@W^"^simm16(reg) is mode=13 & reg; simm16 { oa = reg + simm16; ptr = *:4 oa; export *:8 ptr; }
+eaq: "@W^"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export *:8 ptr; }
+eaq: "L^"^simm32(reg) is mode=14 & reg; simm32 { ptr = reg + simm32; export *:8 ptr; }
+eaq: "L^"^reladdr32 is mode=14 & reg=15; reladdr32 { export *:8 reladdr32; }
+eaq: "@L^"^simm32(reg) is mode=15 & reg; simm32 { oa = reg + simm32; ptr = *:4 oa; export *:8 ptr; }
+eaq: "@L^"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export *:8 ptr; }
 
-# branch
+#  byte indexed - not sure how to implement this
+#base: loc is eal { ptr:4 = loc; export ptr; }
+#eab: base(reg) is mode=4 & reg; base { oa = base + 1*reg; export *:1 oa; }
+#eaw: base(reg) is mode=4 & reg; base { oa = base + 2*reg; export *:2 oa; }
+#eal: base(reg) is mode=4 & reg; base { oa = base + 4*reg; export *:4 oa; }
 
-# 0001 0001
-:BR.b RelAddr8 is opcode=0x11; RelAddr8 {
-  goto RelAddr8;
-}
-# 0001 0010
-:BNEQ RelAddr8 is opcode=0x12; RelAddr8 {
-  if ($(Z) == 0) goto RelAddr8;
-}
-# 0001 0011
-:BEQL RelAddr8 is opcode=0x13; RelAddr8 {
-  if ($(Z) == 1) goto RelAddr8;
-}
-# 0001 0100
-:BGTR RelAddr8 is opcode=0x14; RelAddr8 {
-  if (($(Z)|$(N)) == 0) goto RelAddr8;
-}
-# 0001 0101
-:BLEQ RelAddr8 is opcode=0x15; RelAddr8 {
-  if (($(Z)|$(N)) == 1) goto RelAddr8;
-}
-# 0001 0110 -
-# 0001 0111 -
-# 0001 1000
-:BGEQ RelAddr8 is opcode=0x18; RelAddr8 {
-  if ($(N) == 0) goto RelAddr8;
-}
-# 0001 1001
-:BLSS RelAddr8 is opcode=0x19; RelAddr8 {
-  if ($(N) == 1) goto RelAddr8;
-}
-# 0001 1010
-:BGTRU RelAddr8 is opcode=0x1a; RelAddr8 {
-  if (($(C)|$(Z)) == 0) goto RelAddr8;
-}
-# 0001 1011
-:BLEQU RelAddr8 is opcode=0x1b; RelAddr8 {
-  if (($(C)|$(Z)) == 1) goto RelAddr8;
-}
-# 0001 1100
-:BVC RelAddr8 is opcode=0x1c; RelAddr8 {
-  if ($(V) == 0) goto RelAddr8;
-}
-# 0001 1101
-:BVS RelAddr8 is opcode=0x1d; RelAddr8 {
-  if ($(V) == 1) goto RelAddr8;
-}
-# 0001 1110
-:BCC RelAddr8 is opcode=0x1e; RelAddr8 {
-  if ($(C) == 0) goto RelAddr8;
-}
-# 0001 1111
-:BCS RelAddr8 is opcode=0x1f; RelAddr8 {
-  if ($(C) == 1) goto RelAddr8;
-}
-:BR.w RelAddr16 is opcode=0x31; RelAddr16 {
-  goto RelAddr16;
-}
+# readable <size> <anything>
+rbx: eab is eab { tmp = eab; export tmp; }
+rwx: eaw is eaw { tmp = eaw; export tmp; }
+rlx: eal is eal { tmp = eal; export tmp; }
 
+# fixme: ensure writable effective address
+mbx: eab is eab { tmp = eab; export tmp; }
+mwx: eaw is eaw { tmp = eaw; export tmp; }
+mlx: eal is eal { tmp = eal; export tmp; }
+mqx: eaq is eaq { tmp = eaq; export tmp; }
 
-# move
+:HALT is opcode=0x00 { goto inst_start; }
+:NOP is opcode=0x01 { goto inst_next; }
 
-:MOV.b src_b, dest_b is opcode=0x90; src_b; dest_b {
-  dest_b = src_b;
+:ADAWI eaw, mwx is opcode=0x58; eaw; mwx { addflags(eaw, mwx); tmp = eaw + mwx; mwx = tmp; resflags(tmp); }
+
+:ADDB2 eab, mbx is (op7=1 & argsize=0 & op14=0 & op0=0); eab; mbx { addflags(eab, mbx); tmp = eab + mbx; mbx = tmp; resflags(tmp); }
+:ADDB3 eab, rbx, mbx is (op7=1 & argsize=0 & op14=0 & op0=1); eab; rbx; mbx { addflags(eab, rbx); tmp = eab + rbx; mbx = tmp; resflags(tmp); }
+:ADDW2 eaw, mwx is (op7=1 & argsize=1 & op14=0 & op0=0); eaw; mwx { addflags(eaw, mwx); tmp = eaw + mwx; mwx = tmp; resflags(tmp); }
+:ADDW3 eaw, rwx, mwx is (op7=1 & argsize=1 & op14=0 & op0=1); eaw; rwx; mwx { addflags(eaw, rwx); tmp = eaw + rwx; mwx = tmp; resflags(tmp); }
+:ADDL2 eal, mlx is (op7=1 & argsize=2 & op14=0 & op0=0); eal; mlx { addflags(eal, mlx); tmp = eal + mlx; mlx = tmp; resflags(tmp); }
+:ADDL3 eal, rlx, mlx is (op7=1 & argsize=2 & op14=0 & op0=1); eal; rlx; mlx { addflags(eal, rlx); tmp = eal + rlx; mlx = tmp; resflags(tmp); }
+
+:ADWC eal, mlx is opcode=0xD8; eal; mlx { cf:4 = zext(C_F); addcflags(eal, mlx, cf); tmp = eal + mlx + cf; mlx = tmp; resflags(tmp); }
+
+:ASHL eab, eal, mlx is opcode=0x78; eab; eal; mlx {
+  if (eab s> 31) goto <result_zero>;
+  if (eab s< 30) goto <result_sign>;
+  if (eab s> 0) goto <shift_left>;
+  if (eab s< 0) goto <shift_right>;
+  # eab == 0: fallthrough to <result_zero>
+<result_zero>
+  mlx = 0;
+  goto <end>;
+<shift_left>
+  mlx = eal << (eab & 0x1F);
+  goto <end>;
+<shift_right>
+  mlx = eal >> (eab & 0x1F);
+  goto <end>;
+<result_sign>
+  if (eal s> 0) goto <result_zero>;
+  mlx = -1;
+  goto <end>;
+<end>
+  resflags(mlx);
+  C_F = 0;
 }
-
-:MOV.w src_w, dest_w is opcode=0xb0; src_w; dest_w {
-  dest_w = src_w;
-}
-
-:MOV.l src_l, dest_l is opcode=0xd0; src_l; dest_l {
-  dest_l = src_l;
-}
-
-:MOV.q src_l, dest_l is opcode=0x7d; src_l; dest_l {
-  dest_l = src_l;
-}
-
-:MOV.o is opcode=0x7d; opcode=0xfd {
-  goto 0;
-}
-
-# complement
-
-:MCOM.b src_b, dest_b is opcode=0x92; src_b; dest_b {
-  dest_b = ~src_b;
-}
-:MCOM.w src_w, dest_w is opcode=0xb2; src_w; dest_w {
-  dest_w = ~src_w;
-}
-:MCOM.l src_l, dest_l is opcode=0xd2; src_l; dest_l {
-  dest_l = src_l ^ -1;
+:ASHQ eab, eaq, mqx is opcode=0x79; eab; eaq; mqx {
+  if (eab s> 63) goto <result_zero>;
+  if (eab s< 62) goto <result_sign>;
+  if (eab s> 0) goto <shift_left>;
+  if (eab s< 0) goto <shift_right>;
+  # eab == 0: fallthrough to <result_zero>
+<result_zero>
+  mqx = 0;
+  goto <end>;
+<shift_left>
+  mqx = eaq << (eab & 0x3F);
+  goto <end>;
+<shift_right>
+  mqx = eaq >> (eab & 0x3F);
+  goto <end>;
+<result_sign>
+  if (eaq s> 0) goto <result_zero>;
+  mqx = -1;
+  goto <end>;
+<end>
+  resflags(mqx);
+  C_F = 0;
 }
 
-# move to processor register
-:MFTR src_l, procreg is opcode=0xda; src_l; procreg {
-  procreg = src_l;
-}
-
-# move from processor register
-:MFPR procreg, dest_l is opcode=0xdb; procreg; dest_l {
-  dest_l = procreg;
-}
-
-# bit clear
-
-:BICB2 src_b, dest_b is opcode=0x8a; src_b; dest_b {
-  dest_b = dest_b & ~src_b;
-}
-:BICW2 src_w, dest_w is opcode=0xaa; src_w; dest_w {
-  dest_w = dest_w & ~src_w;
-}
-:BICL2 src_l, dest_l is opcode=0xca; src_l; dest_l {
-  dest_l = dest_l & ~src_l;
-}
-
-:BICB3 op3_b, src_b, dest_b is opcode=0x8b; op3_b; src_b; dest_b {
-  dest_b = src_b & ~op3_b;
-}
-:BICW3 op3_w, src_w, dest_w is opcode=0xab; op3_w; src_w; dest_w {
-  dest_w = src_w & ~op3_w;
-}
-:BICL3 op3_l, src_l, dest_l is opcode=0xcb; op3_l; src_l; dest_l {
-  dest_l = src_l & ~op3_l;
-}
-
-# compare
-
-macro negflag(a,b)
-{
-  $(N) = (sext(a) s< sext(b));
-}
-
-macro zeroflag(a,b)
-{
-  $(Z) = (a == b);
-}
-
-macro carryflag(a,b)
-{
-  $(C) = (zext(a) < zext(b));
-}
-
-:CMPB src_b, dest_b is opcode=0x91; src_b; dest_b {
-#  negflag(src_b, dest_b);
-  zeroflag(src_b, dest_b);
-  $(V) = 0;
-#  carryflag(src_b, dest_b);
-}
-
-:CMPW src_w, dest_w is opcode=0xb1; src_w; dest_w {
-#  negflag(src_w, dest_w);
-  zeroflag(src_w, dest_w);
-  $(V) = 0;
-#  carryflag(src_w, dest_w);
-}
-:CMPL src_l, dest_l is opcode=0xd1; src_l; dest_l {
-#  negflag(src_l, dest_l);
-  zeroflag(src_l, dest_l);
-  $(V) = 0;
-#  carryflag(src_l, dest_l);
-}
-
-# compare field
-pos: src_l is src_l { export src_l; }
-size.rb: src_b is src_b { export src_b; }
-base: src_l is src_l { export src_l; }
-
-:CMPV pos, size.rb, base, src_l is opcode=0xec; pos; size.rb; base; src_l {
-  field = base + pos*sext(size.rb);
-}
-:CMPZV pos, size.rb, base, src_l is opcode=0xed; pos; size.rb; base; src_l {
-  field = base + pos*zext(size.rb); # TODO zext
-}
-
-# case
-selector.b: src_b is src_b { export src_b; }
-limit.b: src_b is src_b { export src_b; }
-selector.w: src_w is src_w { export src_w; }
-limit.w: src_w is src_w { export src_w; }
-selector.l: src_l is src_l { export src_l; }
-limit.l: src_l is src_l { export src_l; }
-
-:CASE.b selector.b, base, limit.b is opcode=0x8f; selector.b; base; limit.b {
-  offset = 2*(limit.b + 1);
-  loc = inst_next + offset;
-  goto [loc];
-}
-:CASE.w selector.w, base, limit.w is opcode=0xaf; selector.w; base; limit.w {
-  offset = 2*(limit.w + 1);
-  loc = inst_next + offset;
-  goto [loc];
-}
-:CASE.l selector.l, base, limit.l is opcode=0xcf; selector.l; base; limit.l {
-  offset = 2*(limit.l + 1);
-  loc = inst_next + offset;
-  goto [loc];
-}
-
-# Subtract one and branch
-#  if greater than or equal
-:SOBGEQ dest_l, RelAddr8 is opcode=0xf4; dest_l; RelAddr8 {
-  dest_l = dest_l - 1;
-  if (dest_l >= 0) goto RelAddr8;
-}
-#  if greater than
-:SOBGTR dest_l, RelAddr8 is opcode=0xf5; dest_l; RelAddr8 {
-  dest_l = dest_l - 1;
-  if (dest_l > 0) goto RelAddr8;
-}
-
-# jump
-
-:JMP src_l is opcode=0x17; src_l {
-  goto src_l;
-}
-
-# insert field
-pos_l: src_l is src_l { export src_l; }
-size_b: src_b is src_b { export src_b; }
-base_b: src_b is src_b { export src_b; }
-:INSV src_l, pos_l, size_b, base_b is opcode=0xf0; src_l; pos_l; size_b; base_b {
-}
-
-# branch bit set/clear
-
-:BBS pos_l, base_b, RelAddr8 is opcode=0xE0; pos_l; base_b; RelAddr8 {
-  goto RelAddr8;
-}
-:BBC pos_l, base_b, RelAddr8 is opcode=0xE1; pos_l; base_b; RelAddr8 {
-  goto RelAddr8;
-}
-
-# move zero-extended
-#   byte to word
-:MOVZBW src_b, dest_w is opcode=0x9b; src_b; dest_w {
-  dest_w = zext(src_b);
-}
-#   byte to long
-:MOVZBW src_b, dest_l is opcode=0x9a; src_b; dest_l {
-  dest_l = zext(src_b);
-}
-#   word to long
-:MOVZWL src_w, dest_l is opcode=0x3c; src_w; dest_l {
-  dest_l = zext(src_w);
-}
-
-# Extract field
-:EXTV pos_l, size_b, base_b, dest_l is opcode=0xee; pos_l; size_b; base_b; dest_l {
-}
-#  extract zero-extended field
-:EXTZV pos_l, size_b, base_b, dest_l is opcode=0xef; pos_l; size_b; base_b; dest_l {
-}
-
-# move address
-:MOVA.b src_b, dest_l is opcode=0x9e; src_b; dest_l {
-  dest_l = sext(src_b);
-}
-:MOVA.w src_w, dest_l is opcode=0x3e; src_w; dest_l {
-  dest_l = sext(src_w);
-}
-:MOVA.l src_l, dest_l is opcode=0xde; src_l; dest_l {
-  dest_l = src_l;
-}
-:MOVA.q src_l, dest_l is opcode=0x7e; src_l; dest_l {
-  dest_l = src_l;
-}
-
-# subtract
-min_b: src_b is src_b { export src_b; }
-min_w: src_w is src_w { export src_w; }
-min_l: src_l is src_l { export src_l; }
-
-:SUBB2 src_b, dest_b is opcode=0x82; src_b; dest_b {
-  dest_b = dest_b - src_b;
-}
-:SUBB3 src_b, min_b, dest_b is opcode=0x83; src_b; min_b; dest_b {
-  dest_b = min_b - src_b;
-}
-:SUBW2 src_w, dest_w is opcode=0xA2; src_w; dest_w {
-  dest_w = dest_w - src_w;
-}
-:SUBW3 src_w, min_w, dest_w is opcode=0xA3; src_w; min_w; dest_w {
-  dest_w = min_w - src_w;
-}
-:SUBL2 src_l, dest_l is opcode=0xC2; src_l; dest_l {
-  dest_l = dest_l - src_l;
-}
-:SUBL3 src_l, min_l, dest_l is opcode=0xC3; src_l; min_l; dest_l {
-  dest_l = min_l - src_l;
-}
+#:BICB2 eab, mbx is opcode=0x8a & eab & mbx { tmp:1 = mbx & ~(eab); mbx = tmp; resflags(tmp); }
+#:BICB3 eab, rbx, mbx is opcode=0x8b & eab & rbx & mbx { }
+#:BICW2 eaw, mwx is opcode=0xaa & eaw & mwx { }
+#:BICW3 eaw, rwx, mwx is opcode=0xab & eaw & rwx & mwx { }
+#:BICL2 eal, mlx is opcode=0xca & eal & mlx { }
+#:BICL3 eal, rlx, mlx is opcode=0xcb & eal & rlx & mlx { }
