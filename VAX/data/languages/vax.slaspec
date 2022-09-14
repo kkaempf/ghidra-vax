@@ -54,7 +54,7 @@ macro cmpflags(op1,op2) {
 }
 
 macro set_field(f, pos, sz, addr) {
-  ptr = addr + sext(pos[29,3]);
+  ptr:4 = addr + sext(pos[29,3]);
   pos20 = pos[0,2];
   highest_bit = (sz-1) + pos20;
   lowest_bit = highest_bit - sz - 1;
@@ -127,7 +127,7 @@ define token quad (64)
 ;
 
 # 128bit immediate - octa
-define token octa (64)
+define token octa (128)
         imm128  = (  0,127)
         sign128 = (127,127)
         simm128 = (  0,127) signed
@@ -136,6 +136,8 @@ define token octa (64)
 # opcode
 define token opbyte (8)
         opcode  = (0,7)
+        lownibble = (0,3)
+        highnibble = (4,7)
 ;
 
 # addressing
@@ -190,10 +192,24 @@ attach variables [ procreg ] [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 PRx07
 define register offset=0x1000 size=1  [ contextreg ];
 define register offset=0x1004 size=4  [ loc ];
 
-reladdr8: loc is simm8  [ loc = inst_next + simm8; ] { ptr:4 = loc; export ptr; }
-reladdr16: loc is simm16  [ loc = inst_next + simm16; ] { ptr:4 = loc; export ptr; }
-reladdr32: loc is simm32  [ loc = inst_next + simm32; ] { ptr:4 = loc; export ptr; }
+reladdr8: loc is simm8  [ loc = inst_next + simm8; ] { export *:4 loc; }
+reladdr16: loc is simm16  [ loc = inst_next + simm16; ] { export *:4 loc; }
+reladdr32: loc is simm32  [ loc = inst_next + simm32; ] { export *:4 loc; }
 
+# condition codes (for branch)
+
+cc: "NEQ"  is lownibble=2 { tmp:1 = !Z_F; export tmp; }
+cc: "EQL"  is lownibble=3 { tmp:1 = Z_F; export tmp; }
+cc: "GTR"  is lownibble=4 { tmp:1 = !(N_F || Z_F); export tmp; }
+cc: "LEQ"  is lownibble=5 { tmp:1 = (N_F || Z_F); export tmp; }
+cc: "GEQ"  is lownibble=8 { tmp:1 = !N_F; export tmp; }
+cc: "LSS"  is lownibble=9 { tmp:1 = N_F; export tmp; }
+cc: "GTRU" is lownibble=10 { tmp:1 = !(C_F || Z_F); export tmp; }
+cc: "LEQU" is lownibble=11 { tmp:1 = (C_F || Z_F); export tmp; }
+cc: "VC"  is lownibble=12 { tmp:1 = !V_F; export tmp; }
+cc: "VS"  is lownibble=13 { tmp:1 = V_F; export tmp; }
+cc: "CC"  is lownibble=14 { tmp:1 = !C_F; export tmp; }
+cc: "CS"  is lownibble=15 { tmp:1 = C_F; export tmp; }
 
 # effective addresses
 
@@ -203,6 +219,7 @@ eab_a: "S^#"^litval is mode67=0 & litval { ptr:4 = inst_next - 1; export ptr; }
 eab: "S^#"^litval is mode67=0 & litval { export *[const]:1 litval; }
 #   4: indexed - see below
 #   5: register
+eab_a: reg is mode=5 & reg { export reg; }
 eab: reg is mode=5 & reg { tmp:1 = reg:1; export tmp; }
 #   6: register deferred
 eab_a: (reg) is mode=6 & reg { export reg; }
@@ -282,6 +299,7 @@ eaw: "@L^"^simm32(reg) is mode=15 & reg; simm32 { oa = reg + simm32; ptr = *:4 o
 eaw: "@L^"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export *:2 ptr; }
 
 eaw_a: "S^#"^litval is mode67=0 & litval { ptr:4 = inst_next - 1; export ptr; }
+eaw_a: reg is mode=5 & reg { export reg; }
 eaw_a: (reg) is mode=6 & reg { export reg; }
 eaw_a: -(reg) is mode=7 & reg { reg = reg - 2; export reg; }
 eaw_a: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 2; export ptr; }
@@ -324,6 +342,7 @@ eal: "@L^"^simm32(reg) is mode=15 & reg; simm32 { oa = reg + simm32; ptr = *:4 o
 eal: "@L^"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export *:4 ptr; }
 
 eal_a: "S^#"^litval is mode67=0 & litval { ptr:4 = inst_next - 1; export ptr; }
+eal_a: reg is mode=5 & reg { export reg; }
 eal_a: (reg) is mode=6 & reg { export reg; }
 eal_a: -(reg) is mode=7 & reg { reg = reg - 4; export reg; }
 eal_a: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 4; export ptr; }
@@ -397,9 +416,13 @@ eaq_a: "@L^"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; exp
 
 # readable <size> <anything>
 rbx: eab is eab { tmp = eab; export tmp; }
+rbx2: eab is eab { tmp = eab; export tmp; }
 rwx: eaw is eaw { tmp = eaw; export tmp; }
+rwx2: eaw is eaw { tmp = eaw; export tmp; }
 rlx: eal is eal { tmp = eal; export tmp; }
 rlx2: eal is eal { tmp = eal; export tmp; }
+rlx3: eal is eal { tmp = eal; export tmp; }
+rlx4: eal is eal { tmp = eal; export tmp; }
 
 # fixme: ensure writable effective address
 mbx: eab is eab { tmp = eab; export tmp; }
@@ -408,9 +431,7 @@ mlx: eal is eal { tmp = eal; export tmp; }
 mlx2: eal is eal { tmp = eal; export tmp; }
 mqx: eaq is eaq { tmp = eaq; export tmp; }
 
-:HALT is opcode=0x00 { goto inst_start; }
-:NOP is opcode=0x01 { goto inst_next; }
-
+eab_a2: eab_a is eab_a { tmp = eab_a; export tmp; }
 
 #=========================================================================
 # Integer-Arithmetic and Logical Instructions
@@ -839,15 +860,15 @@ mqx: eaq is eaq { tmp = eaq; export tmp; }
 
 :ACBB eab, rbx, mbx, reladdr16 is opcode=0x9d; eab; rbx; mbx; reladdr16 {
   mbx = mbx + rbx;
-  if (((rbx >= 0) && (mbx <= eab)) || ((rbx s< 0) && (mbx >= eab))) goto reladdr16;
+  if (((rbx s>= 0) && (mbx <= eab)) || ((rbx s< 0) && (mbx >= eab))) goto reladdr16;
 }
 :ACBW eaw, rwx, mwx, reladdr16 is opcode=0x3d; eaw; rwx; mwx; reladdr16 {
   mwx = mwx + rwx;
-  if (((rwx >= 0) && (mwx <= eaw)) || ((rwx s< 0) && (mwx >= eaw))) goto reladdr16;
+  if (((rwx s>= 0) && (mwx <= eaw)) || ((rwx s< 0) && (mwx >= eaw))) goto reladdr16;
 }
 :ACBL eal, rlx, mlx, reladdr16 is opcode=0xf1; eal; rlx; mlx; reladdr16 {
   mlx = mlx + rlx;
-  if (((rlx >= 0) && (mlx <= eal)) || ((rlx s< 0) && (mlx >= eal))) goto reladdr16;
+  if (((rlx s>= 0) && (mlx <= eal)) || ((rlx s< 0) && (mlx >= eal))) goto reladdr16;
 }
 # FIXME :ACBF is opcode=0x4f
 # FIXME :ACBD is opcode=0x6f
@@ -860,3 +881,315 @@ mqx: eaq is eaq { tmp = eaq; export tmp; }
   mlx = mlx + 1;
   if (mlx s< eal) goto reladdr8;
 }
+
+:B^cc reladdr8 is highnibble=1 & cc; reladdr8 {
+  if (cc) goto reladdr8;
+}
+
+:BBS eal, eab_a, reladdr8 is opcode=0xe0; eal; eab_a; reladdr8 {
+  local f:4;
+  set_field(f, eal, 1, eab_a);
+  if (f == 1) goto reladdr8;
+}
+:BBC eal, eab_a, reladdr8 is opcode=0xe1; eal; eab_a; reladdr8 {
+  local f:4;
+  set_field(f, eal, 1, eab_a);
+  if (f == 0) goto reladdr8;
+}
+:BBSS eal, eab_a, reladdr8 is opcode=0xe2; eal; eab_a; reladdr8 {
+  teststate:1 = 1;
+#  newstate:1 = 1;
+  local tmp:4;
+  set_field(tmp, eal, 1, eab_a);
+  # FIXME write field
+  if (tmp:1 == teststate) goto reladdr8;
+}
+:BBCS eal, eab_a, reladdr8 is opcode=0xe3; eal; eab_a; reladdr8 {
+  teststate:1 = 0;
+#  newstate:1 = 1;
+  local tmp:4;
+  set_field(tmp, eal, 1, eab_a);
+  # FIXME write field
+  if (tmp:1 == teststate) goto reladdr8;
+}
+:BBSC eal, eab_a, reladdr8 is opcode=0xe4; eal; eab_a; reladdr8 {
+  teststate:1 = 1;
+#  newstate:1 = 0;
+  local tmp:4;
+  set_field(tmp, eal, 1, eab_a);
+  # FIXME write field
+  if (tmp:1 == teststate) goto reladdr8;
+}
+:BBCC eal, eab_a, reladdr8 is opcode=0xe5; eal; eab_a; reladdr8 {
+  teststate:1 = 0;
+#  newstate:1 = 0;
+  local tmp:4;
+  set_field(tmp, eal, 1, eab_a);
+  # FIXME write field
+  if (tmp:1 == teststate) goto reladdr8;
+}
+:BBSSI eal, eab_a, reladdr8 is opcode=0xe6; eal; eab_a; reladdr8 {
+  teststate:1 = 1;
+#  newstate:1 = 1;
+  local tmp:4;
+  set_field(tmp, eal, 1, eab_a);
+  # FIXME write field
+  if (tmp:1 == teststate) goto reladdr8;
+}
+:BBCCI eal, eab_a, reladdr8 is opcode=0xe7; eal; eab_a; reladdr8 {
+  teststate:1 = 0;
+#  newstate:1 = 0;
+  local tmp:4;
+  set_field(tmp, eal, 1, eab_a);
+  # FIXME write field
+  if (tmp:1 == teststate) goto reladdr8;
+}
+
+:BLBS eal, reladdr8 is opcode=0xe8; eal; reladdr8 {
+  local tmp:1 = eal:1 & 0x01;
+  if (tmp == 1) goto reladdr8;
+}
+:BLBC eal, reladdr8 is opcode=0xe9; eal; reladdr8 {
+  local tmp:1 = eal:1 & 0x01;
+  if (tmp == 0) goto reladdr8;
+}
+
+:BRB reladdr8 is opcode=0x11; reladdr8 {
+  goto reladdr8;
+}
+:BRW reladdr16 is opcode=0x31; reladdr16 {
+  goto reladdr16;
+}
+
+:BSBB reladdr8 is opcode=0x10; reladdr8 {
+  SP = SP - 4;
+  *:4 SP = inst_next;
+  call reladdr8;
+}
+:BSBW reladdr16 is opcode=0x30; reladdr16 {
+  SP = SP - 4;
+  *:4 SP = inst_next;
+  call reladdr16;
+}
+
+:CASEB eab, rbx, rbx2 is opcode=0x8f; eab; rbx; rbx2 {
+#  local tmp:1 = eab - rbx;
+  local offset:4;
+#  if (tmp > rbx2) goto <not_lequ>;
+#  idx = tmp + tmp; # offset table has words
+#  ptr:4 = inst_next + sext(idx); # ptr into table
+#  offset = sext(*:2 ptr); # get table entry
+#  goto <end>;
+#<not_lequ>
+  offset = 2*(zext(rbx2) + 1) + 1; # skip to end of table
+#<end>
+  goto [inst_next + offset];
+}
+:CASEW eaw, rwx, rwx2 is opcode=0xaf; eaw; rwx; rwx2 {
+  local tmp:2 = eaw - rwx;
+  local offset:4;
+  if (tmp > rwx2) goto <not_lequ>;
+  idx = tmp + tmp; # offset table has words
+  ptr:4 = inst_next + sext(idx); # ptr into table
+  offset = sext(*:2 ptr); # get table entry
+  goto <end>;
+<not_lequ>
+  offset = 2*(zext(rwx2) + 1); # skip to end of table
+<end>
+  goto [inst_next + offset];
+}
+:CASEL eal, rlx, rlx2 is opcode=0xcf; eal; rlx; rlx2 {
+  local tmp:4 = eal - rlx;
+  local offset:4;
+  if (tmp > rlx2) goto <not_lequ>;
+  idx = tmp + tmp; # offset table has words
+  ptr:4 = inst_next + sext(idx); # ptr into table
+  offset = sext(*:2 ptr); # get table entry
+  goto <end>;
+<not_lequ>
+  offset = 2*(rlx2 + 1); # skip to end of table
+<end>
+  goto [inst_next + offset];
+}
+
+:JMP eab_a is opcode=0x17; eab_a {
+  goto eab_a;
+}
+:JSB eab_a is opcode=0x16; eab_a {
+  SP = SP - 4;
+  *:4 SP = inst_next;
+  goto eab_a;
+}
+
+:RSB is opcode=0x05 { tmp:4 = *SP; SP = SP + 4; return [tmp]; }
+
+:SOBGEQ mlx, reladdr8 is opcode=0xf4; mlx; reladdr8 {
+  mlx = mlx - 1;
+  resflags(mlx);
+  if (mlx != 0x7fffffff) goto <no_v>;
+  V_F = 1;
+<no_v>
+  if (mlx s>= 0) goto reladdr8;
+}
+:SOBGTR mlx, reladdr8 is opcode=0xf5; mlx; reladdr8 {
+  mlx = mlx - 1;
+  resflags(mlx);
+  if (mlx != 0x7fffffff) goto <no_v>;
+  V_F = 1;
+<no_v>
+  if (mlx s> 0) goto reladdr8;
+}
+
+:CALLG eab_a, eab_a2 is opcode=0xfa; eab_a; eab_a2 {
+  ptr:4 = eab_a2 + 2;
+  # FIXME
+  call [ptr];
+}
+:CALLS eal, eab_a is opcode=0xfb; eal; eab_a {
+  ptr:4 = eab_a + 2;
+  # FIXME
+  call [ptr];
+}
+:RET is opcode=0x04 {
+  # FIXME
+  tmp:4 = *SP; SP = SP + 4; return [tmp];
+}
+
+#=========================================================================
+# Miscellaneous Instructions
+#=========================================================================
+
+:BICPSW eaw is opcode=0xb9; eaw { PSW = PSW & ~eaw; }
+:BISPSW eaw is opcode=0xb8; eaw { PSW = PSW | eaw; }
+
+:BPT is opcode=0x03 { }
+:HALT is opcode=0x00 { }
+
+:INDEX eal, rlx, rlx2, rlx3, rlx4, mlx is opcode=0x0a; eal; rlx; rlx2; rlx3; rlx4; mlx {
+  mlx = (rlx4 + eal) * rlx3;
+  if ((eal s< rlx) || (eal > rlx2)) goto <end>;
+  resflags(mlx);
+<end>
+}
+
+:MOVPSL mlx is opcode=0xdc; mlx { mlx = PSL; }
+
+:NOP is opcode=0x01 { goto inst_next; }
+
+macro popr(reg) {
+  reg = *:4 SP;
+  SP = SP + 4;
+}
+
+:POPR eaw is opcode=0xba; eaw {
+  if ((eaw & 0x0001) == 0) goto<no_r0>;
+  popr(R0);
+<no_r0>
+  if ((eaw & 0x0002) == 0) goto<no_r1>;
+  popr(R1);
+<no_r1>
+  if ((eaw & 0x0004) == 0) goto<no_r2>;
+  popr(R2);
+<no_r2>
+  if ((eaw & 0x0008) == 0) goto<no_r3>;
+  popr(R3);
+<no_r3>
+  if ((eaw & 0x0010) == 0) goto<no_r4>;
+  popr(R4);
+<no_r4>
+  if ((eaw & 0x0020) == 0) goto<no_r5>;
+  popr(R5);
+<no_r5>
+  if ((eaw & 0x0040) == 0) goto<no_r6>;
+  popr(R6);
+<no_r6>
+  if ((eaw & 0x0080) == 0) goto<no_r7>;
+  popr(R7);
+<no_r7>
+  if ((eaw & 0x0100) == 0) goto<no_r8>;
+  popr(R8);
+<no_r8>
+  if ((eaw & 0x0200) == 0) goto<no_r9>;
+  popr(R9);
+<no_r9>
+  if ((eaw & 0x0400) == 0) goto<no_r10>;
+  popr(R10);
+<no_r10>
+  if ((eaw & 0x0800) == 0) goto<no_r11>;
+  popr(R11);
+<no_r11>
+  if ((eaw & 0x1000) == 0) goto<no_ap>;
+  popr(AP);
+<no_ap>
+  if ((eaw & 0x2000) == 0) goto<no_fp>;
+  popr(FP);
+<no_fp>
+  if ((eaw & 0x4000) == 0) goto<no_sp>;
+  popr(SP);
+<no_sp>
+}
+
+macro pushr(reg) {
+  SP = SP - 4;
+  *:4 SP = reg;
+}
+
+:PUSHR eaw is opcode=0xbb; eaw {
+  if ((eaw & 0x4000) == 0) goto<no_sp>;
+  pushr(SP);
+<no_sp>
+  if ((eaw & 0x2000) == 0) goto<no_fp>;
+  pushr(FP);
+<no_fp>
+  if ((eaw & 0x1000) == 0) goto<no_ap>;
+  pushr(AP);
+<no_ap>
+  if ((eaw & 0x0800) == 0) goto<no_r11>;
+  pushr(R11);
+<no_r11>
+  if ((eaw & 0x0400) == 0) goto<no_r10>;
+  pushr(R10);
+<no_r10>
+  if ((eaw & 0x0200) == 0) goto<no_r9>;
+  pushr(R9);
+<no_r9>
+  if ((eaw & 0x0080) == 0) goto<no_r7>;
+  pushr(R7);
+<no_r8>
+  if ((eaw & 0x0040) == 0) goto<no_r6>;
+  pushr(R6);
+<no_r7>
+  if ((eaw & 0x0100) == 0) goto<no_r8>;
+  pushr(R8);
+<no_r6>
+  if ((eaw & 0x0020) == 0) goto<no_r5>;
+  pushr(R5);
+<no_r5>
+  if ((eaw & 0x0010) == 0) goto<no_r4>;
+  pushr(R4);
+<no_r4>
+  if ((eaw & 0x0008) == 0) goto<no_r3>;
+  pushr(R3);
+<no_r3>
+  if ((eaw & 0x0004) == 0) goto<no_r2>;
+  pushr(R2);
+<no_r2>
+  if ((eaw & 0x0002) == 0) goto<no_r1>;
+  pushr(R1);
+<no_r1>
+  if ((eaw & 0x0001) == 0) goto<no_r0>;
+  pushr(R0);
+<no_r0>
+}
+
+:XFC is opcode=0xfc { }
+
+# move to processor register
+:MFTR eal, procreg is opcode=0xda; eal; procreg {
+  procreg = eal;
+}
+# move from processor register
+:MFPR procreg, mlx is opcode=0xdb; procreg; mlx {
+  mlx = procreg;
+}
+
