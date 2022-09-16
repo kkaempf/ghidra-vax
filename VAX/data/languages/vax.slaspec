@@ -1007,7 +1007,7 @@ eab_a2: eab_a is eab_a { tmp = eab_a; export tmp; }
 
 :CASEB eab, rbx, rbx2 is opcode=0x8f; eab; rbx; rbx2 {
   local tmp:1 = eab - rbx; # offset into jump table (of words)
-  local table:4 = inst_next;
+  local table:4 = &:4 inst_next;
   local offset;
   if (tmp > rbx2) goto <not_lequ>; # unsigned compare !, also break out here if tmp is 'negative'
   idx = tmp + tmp; # offset table has words
@@ -1098,8 +1098,8 @@ eab_a2: eab_a is eab_a { tmp = eab_a; export tmp; }
 :BICPSW eaw is opcode=0xb9; eaw { PSW = PSW & ~eaw; }
 :BISPSW eaw is opcode=0xb8; eaw { PSW = PSW | eaw; }
 
-:BPT is opcode=0x03 { }
-:HALT is opcode=0x00 { }
+:BPT is opcode=0x03 unimpl
+:HALT is opcode=0x00 unimpl
 
 :INDEX eal, rlx, rlx2, rlx3, rlx4, mlx is opcode=0x0a; eal; rlx; rlx2; rlx3; rlx4; mlx {
   mlx = (rlx4 + eal) * rlx3;
@@ -1208,25 +1208,19 @@ eab_a2: eab_a is eab_a { tmp = eab_a; export tmp; }
 <no_r0>
 }
 
-:XFC is opcode=0xfc { }
+:XFC is opcode=0xfc unimpl
 
 #=========================================================================
 # Queue Instructions
 #=========================================================================
 # FIXME
 
-:INSQHI eab, eaq is opcode=0x5c; eab; eaq {
-}
-:INSQTI eab, eaq is opcode=0x5d; eab; eaq {
-}
-:INSQUE eab, mbx is opcode=0x0e; eab; mbx {
-}
-:REMQHI eaq, eal is opcode=0x5e; eaq; eal {
-}
-:REMQTI eaq, eal is opcode=0x5f; eaq; eal {
-}
-:REMQUE eab, eal is opcode=0x0f; eab; eal {
-}
+:INSQHI eab, eaq is opcode=0x5c; eab; eaq unimpl
+:INSQTI eab, eaq is opcode=0x5d; eab; eaq unimpl
+:INSQUE eab, mbx is opcode=0x0e; eab; mbx unimpl
+:REMQHI eaq, eal is opcode=0x5e; eaq; eal unimpl
+:REMQTI eaq, eal is opcode=0x5f; eaq; eal unimpl
+:REMQUE eab, eal is opcode=0x0f; eab; eal unimpl
 
 #=========================================================================
 # Floating-Point Instructions
@@ -1451,46 +1445,46 @@ eab_a2: eab_a is eab_a { tmp = eab_a; export tmp; }
 #=========================================================================
 # FIXME
 
-:CMPC3 is opcode=0x29 { }
-:CMPC5 is opcode=0x2d { }
-:LOCC is opcode=0x3a { }
-:MATCHC is opcode=0x39 { }
-:MOVC3 is opcode=0x28 { }
-:MOVC5 is opcode=0x2c { }
-:MOVTC is opcode=0x2e { }
-:MOVTUC is opcode=0x2f { }
-:SCANC is opcode=0x2a { }
-:SKPC is opcode=0x3b { }
-:SPANC is opcode=0x2b { }
+:CMPC3 is opcode=0x29 unimpl
+:CMPC5 is opcode=0x2d unimpl
+:LOCC is opcode=0x3a unimpl
+:MATCHC is opcode=0x39 unimpl
+:MOVC3 is opcode=0x28 unimpl
+:MOVC5 is opcode=0x2c unimpl
+:MOVTC is opcode=0x2e unimpl
+:MOVTUC is opcode=0x2f unimpl
+:SCANC is opcode=0x2a unimpl
+:SKPC is opcode=0x3b unimpl
+:SPANC is opcode=0x2b unimpl
 
 #=========================================================================
 # Cyclic Redundancy Check Instructions
 #=========================================================================
 # FIXME
 
-:CRC is opcode=0x0b { }
+:CRC is opcode=0x0b unimpl
 
 #=========================================================================
 # Decimal-String Instructions
 #=========================================================================
 # FIXME
 
-:ADDP4 is opcode=0x20 { }
-:ADDP6 is opcode=0x21 { }
-:ASHP is opcode=0xf8 { }
-:CMPP3 is opcode=0x35 { }
-:CMPP4 is opcode=0x37 { }
-:CVTLP is opcode=0xf9 { }
-:CVTPL is opcode=0x36 { }
-:CVTPS is opcode=0x08 { }
-:CVTPT is opcode=0x24 { }
-:CVTSP is opcode=0x09 { }
-:CVTTP is opcode=0x26 { }
-:DIVP is opcode=0x27 { }
-:MOVP is opcode=0x34 { }
-:MULP is opcode=0x25 { }
-:SUBP4 is opcode=0x22 { }
-:SUBP6 is opcode=0x23 { }
+:ADDP4 is opcode=0x20 unimpl
+:ADDP6 is opcode=0x21 unimpl
+:ASHP is opcode=0xf8 unimpl
+:CMPP3 is opcode=0x35 unimpl
+:CMPP4 is opcode=0x37 unimpl
+:CVTLP is opcode=0xf9 unimpl
+:CVTPL is opcode=0x36 unimpl
+:CVTPS is opcode=0x08 unimpl
+:CVTPT is opcode=0x24 unimpl
+:CVTSP is opcode=0x09 unimpl
+:CVTTP is opcode=0x26 unimpl
+:DIVP is opcode=0x27 unimpl
+:MOVP is opcode=0x34 unimpl
+:MULP is opcode=0x25 unimpl
+:SUBP4 is opcode=0x22 unimpl
+:SUBP6 is opcode=0x23 unimpl
 
 #=========================================================================
 # Edit Instructions
