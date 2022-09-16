@@ -75,6 +75,16 @@ macro set_field(f, pos, sz, addr) {
   f = f >> 32-lowest_bit; # move bits down
 }
 
+macro push(val) {
+  SP = SP - 4;
+  *:4 SP = val;
+}
+
+macro pop(ret) {
+  ret = *:4 SP;
+  SP = SP + 4;
+}
+
 # processor registers
 define register offset=0x100 size=4 [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 PRx07
                                P0BR  P0LR  P1BR  P1LR  SBR   SLR   CPUID PRx0f
@@ -202,7 +212,6 @@ attach variables [ procreg ] [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 PRx07
                                ];
 
 define register offset=0x1000 size=1  [ contextreg ];
-define register offset=0x1004 size=4  [ loc ];
 
 reladdr8: loc is simm8  [ loc = inst_next + simm8; ] { export *:4 loc; }
 reladdr16: loc is simm16  [ loc = inst_next + simm16; ] { export *:4 loc; }
@@ -380,7 +389,7 @@ eaq: reg is mode=5 & reg {
   rptr:4 = &reg + 4;
   reg1 = *[register]rptr;
   tmp:8 = reg1;
-  tmp = zext(tmp << 32);
+  tmp = tmp << 32;
   tmp = tmp + zext(reg);
   export tmp;
 }
@@ -762,7 +771,7 @@ eab_a2: eab_a is eab_a { tmp = eab_a; export tmp; }
 :MULL2 eal, mlx is opcode=0xc4; eal; mlx { mlx = mlx * eal; C_F = 0; resflags(mlx); } # FIXME V_F
 :MULL3 eal, rlx, mlx is opcode=0xc5; eal; rlx; mlx { mlx = rlx * eal; C_F = 0; resflags(mlx); } # FIXME V_F
 
-:PUSHL eal is opcode=0xdd; eal { SP = SP - 4; *:4 SP = eal; V_F = 0; resflags(eal); }
+:PUSHL eal is opcode=0xdd; eal { push(eal); V_F = 0; resflags(eal); }
 
 :ROTL eab, eal, mlx is opcode=0x9c; eab; eal; mlx {
   if (eab s> 0) goto <rotate_left>;
@@ -812,10 +821,10 @@ eab_a2: eab_a is eab_a { tmp = eab_a; export tmp; }
 :MOVAL eal_a, mlx is opcode=0xde; eal_a; mlx { mlx = eal_a; V_F = 0; resflags(mlx); }
 :MOVAQ eaq_a, mlx is opcode=0x7e; eaq_a; mlx { mlx = eaq_a; V_F = 0; resflags(mlx); }
 
-:PUSHAB eab_a is opcode=0x9f; eab_a { SP = SP - 4; *:4 SP = eab_a; V_F = 0; resflags(eab_a); }
-:PUSHAW eaw_a is opcode=0x3f; eaw_a { SP = SP - 4; *:4 SP = eaw_a; V_F = 0; resflags(eaw_a); }
-:PUSHAL eal_a is opcode=0xdf; eal_a { SP = SP - 4; *:4 SP = eal_a; V_F = 0; resflags(eal_a); }
-:PUSHAQ eaq_a is opcode=0x7f; eaq_a { SP = SP - 4; *:4 SP = eaq_a; V_F = 0; resflags(eaq_a); }
+:PUSHAB eab_a is opcode=0x9f; eab_a { push(eab_a); V_F = 0; resflags(eab_a); }
+:PUSHAW eaw_a is opcode=0x3f; eaw_a { push(eaw_a); V_F = 0; resflags(eaw_a); }
+:PUSHAL eal_a is opcode=0xdf; eal_a { push(eal_a); V_F = 0; resflags(eal_a); }
+:PUSHAQ eaq_a is opcode=0x7f; eaq_a { push(eaq_a); V_F = 0; resflags(eaq_a); }
 
 #=========================================================================
 # Variable-Length Bit-Field Instructions
@@ -825,48 +834,44 @@ eab_a2: eab_a is eab_a { tmp = eab_a; export tmp; }
   if (eab == 0) goto <size_zero>;
   local f:4;
   set_field(f, eal, eab, eab_a);
-  tmp = sext(f);
   goto <end>;
 <size_zero>
-  tmp = 0;
+  f = 0;
 <end>
-  cmpflags(tmp, rlx);
+  cmpflags(f, rlx);
 }
 :CMPZV eal, eab, eab_a, rlx is opcode=0xed; eal; eab; eab_a; rlx {
   if (eab == 0) goto <size_zero>;
   local f:4;
   set_field(f, eal, eab, eab_a);
-  tmp = zext(f);
   goto <end>;
 <size_zero>
-  tmp = 0;
+  f = 0;
 <end>
-  cmpflags(tmp, rlx);
+  cmpflags(f, rlx);
 }
 
 :EXTV eal, eab, eab_a, mlx is opcode=0xee; eal; eab; eab_a; mlx {
   if (eab == 0) goto <size_zero>;
   local f:4;
   set_field(f, eal, eab, eab_a);
-  tmp = sext(f);
   goto <end>;
 <size_zero>
-  tmp = 0;
+  f = 0;
 <end>
-  mlx = tmp;
-  resflags(tmp);
+  mlx = f;
+  resflags(f);
 }
 :EXTZV eal, eab, eab_a, mlx is opcode=0xef; eal; eab; eab_a; mlx {
   if (eab == 0) goto <size_zero>;
   local f:4;
   set_field(f, eal, eab, eab_a);
-  tmp = zext(f);
   goto <end>;
 <size_zero>
-  tmp = 0;
+  f = 0;
 <end>
-  mlx = tmp;
-  resflags(tmp);
+  mlx = f;
+  resflags(f);
 }
 
 :FFC eal, eab, eab_a, mlx is opcode=0xeb; eal; eab; eab_a; mlx {
@@ -992,20 +997,18 @@ eab_a2: eab_a is eab_a { tmp = eab_a; export tmp; }
 }
 
 :BSBB reladdr8 is opcode=0x10; reladdr8 {
-  SP = SP - 4;
-  *:4 SP = inst_next;
+  push(&:4 inst_next);
   call reladdr8;
 }
 :BSBW reladdr16 is opcode=0x30; reladdr16 {
-  SP = SP - 4;
-  *:4 SP = inst_next;
+  push(&:4 inst_next);
   call reladdr16;
 }
 
 :CASEB eab, rbx, rbx2 is opcode=0x8f; eab; rbx; rbx2 {
   local tmp:1 = eab - rbx; # offset into jump table (of words)
   local table:4 = inst_next;
-  local offset:4;
+  local offset;
   if (tmp > rbx2) goto <not_lequ>; # unsigned compare !, also break out here if tmp is 'negative'
   idx = tmp + tmp; # offset table has words
   ptr:4 = table + sext(idx); # ptr into table
@@ -1014,7 +1017,7 @@ eab_a2: eab_a is eab_a { tmp = eab_a; export tmp; }
 <not_lequ>
   offset = 2*(zext(rbx2) + 1); # skip to end of table
 <end>
-  loc = inst_next + offset;
+  loc:4 = inst_next + offset;
   goto [loc];
 }
 :CASEW eaw, rwx, rwx2 is opcode=0xaf; eaw; rwx; rwx2 {
@@ -1035,7 +1038,7 @@ eab_a2: eab_a is eab_a { tmp = eab_a; export tmp; }
   local offset:4;
   if (tmp > rlx2) goto <not_lequ>;
   idx = tmp + tmp; # offset table has words
-  ptr:4 = inst_next + sext(idx); # ptr into table
+  ptr:4 = inst_next + idx; # ptr into table
   offset = sext(*:2 ptr); # get table entry
   goto <end>;
 <not_lequ>
@@ -1048,12 +1051,11 @@ eab_a2: eab_a is eab_a { tmp = eab_a; export tmp; }
   goto eab_a;
 }
 :JSB eab_a is opcode=0x16; eab_a {
-  SP = SP - 4;
-  *:4 SP = inst_next;
+  push(&:4 inst_next);
   goto eab_a;
 }
 
-:RSB is opcode=0x05 { tmp:4 = *SP; SP = SP + 4; return [tmp]; }
+:RSB is opcode=0x05 { pop(PC); return [PC]; }
 
 :SOBGEQ mlx, reladdr8 is opcode=0xf4; mlx; reladdr8 {
   mlx = mlx - 1;
@@ -1083,8 +1085,9 @@ eab_a2: eab_a is eab_a { tmp = eab_a; export tmp; }
   call [ptr];
 }
 :RET is opcode=0x04 {
-  # FIXME
-  tmp:4 = *SP; SP = SP + 4; return [tmp];
+  pop(PC);
+  loc:4 = PC;
+  return [loc];
 }
 
 #=========================================================================
@@ -1109,109 +1112,99 @@ eab_a2: eab_a is eab_a { tmp = eab_a; export tmp; }
 
 :NOP is opcode=0x01 { goto inst_next; }
 
-macro popr(reg) {
-  reg = *:4 SP;
-  SP = SP + 4;
-}
-
 :POPR eaw is opcode=0xba; eaw {
   if ((eaw & 0x0001) == 0) goto<no_r0>;
-  popr(R0);
+  pop(R0);
 <no_r0>
   if ((eaw & 0x0002) == 0) goto<no_r1>;
-  popr(R1);
+  pop(R1);
 <no_r1>
   if ((eaw & 0x0004) == 0) goto<no_r2>;
-  popr(R2);
+  pop(R2);
 <no_r2>
   if ((eaw & 0x0008) == 0) goto<no_r3>;
-  popr(R3);
+  pop(R3);
 <no_r3>
   if ((eaw & 0x0010) == 0) goto<no_r4>;
-  popr(R4);
+  pop(R4);
 <no_r4>
   if ((eaw & 0x0020) == 0) goto<no_r5>;
-  popr(R5);
+  pop(R5);
 <no_r5>
   if ((eaw & 0x0040) == 0) goto<no_r6>;
-  popr(R6);
+  pop(R6);
 <no_r6>
   if ((eaw & 0x0080) == 0) goto<no_r7>;
-  popr(R7);
+  pop(R7);
 <no_r7>
   if ((eaw & 0x0100) == 0) goto<no_r8>;
-  popr(R8);
+  pop(R8);
 <no_r8>
   if ((eaw & 0x0200) == 0) goto<no_r9>;
-  popr(R9);
+  pop(R9);
 <no_r9>
   if ((eaw & 0x0400) == 0) goto<no_r10>;
-  popr(R10);
+  pop(R10);
 <no_r10>
   if ((eaw & 0x0800) == 0) goto<no_r11>;
-  popr(R11);
+  pop(R11);
 <no_r11>
   if ((eaw & 0x1000) == 0) goto<no_ap>;
-  popr(AP);
+  pop(AP);
 <no_ap>
   if ((eaw & 0x2000) == 0) goto<no_fp>;
-  popr(FP);
+  pop(FP);
 <no_fp>
   if ((eaw & 0x4000) == 0) goto<no_sp>;
-  popr(SP);
+  pop(SP);
 <no_sp>
-}
-
-macro pushr(reg) {
-  SP = SP - 4;
-  *:4 SP = reg;
 }
 
 :PUSHR eaw is opcode=0xbb; eaw {
   if ((eaw & 0x4000) == 0) goto<no_sp>;
-  pushr(SP);
+  push(SP);
 <no_sp>
   if ((eaw & 0x2000) == 0) goto<no_fp>;
-  pushr(FP);
+  push(FP);
 <no_fp>
   if ((eaw & 0x1000) == 0) goto<no_ap>;
-  pushr(AP);
+  push(AP);
 <no_ap>
   if ((eaw & 0x0800) == 0) goto<no_r11>;
-  pushr(R11);
+  push(R11);
 <no_r11>
   if ((eaw & 0x0400) == 0) goto<no_r10>;
-  pushr(R10);
+  push(R10);
 <no_r10>
   if ((eaw & 0x0200) == 0) goto<no_r9>;
-  pushr(R9);
+  push(R9);
 <no_r9>
   if ((eaw & 0x0080) == 0) goto<no_r7>;
-  pushr(R7);
+  push(R7);
 <no_r8>
   if ((eaw & 0x0040) == 0) goto<no_r6>;
-  pushr(R6);
+  push(R6);
 <no_r7>
   if ((eaw & 0x0100) == 0) goto<no_r8>;
-  pushr(R8);
+  push(R8);
 <no_r6>
   if ((eaw & 0x0020) == 0) goto<no_r5>;
-  pushr(R5);
+  push(R5);
 <no_r5>
   if ((eaw & 0x0010) == 0) goto<no_r4>;
-  pushr(R4);
+  push(R4);
 <no_r4>
   if ((eaw & 0x0008) == 0) goto<no_r3>;
-  pushr(R3);
+  push(R3);
 <no_r3>
   if ((eaw & 0x0004) == 0) goto<no_r2>;
-  pushr(R2);
+  push(R2);
 <no_r2>
   if ((eaw & 0x0002) == 0) goto<no_r1>;
-  pushr(R1);
+  push(R1);
 <no_r1>
   if ((eaw & 0x0001) == 0) goto<no_r0>;
-  pushr(R0);
+  push(R0);
 <no_r0>
 }
 
