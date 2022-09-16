@@ -26,6 +26,11 @@ macro resflags(result) {
  Z_F = result == 0;
 }
 
+macro resfflags(result) {
+ N_F = result f< 0;
+ Z_F = result f== 0;
+}
+
 macro addflags(op1,op2) {
  C_F = carry(op1,op2);
  V_F = scarry(op1,op2);
@@ -51,6 +56,13 @@ macro cmpflags(op1,op2) {
  N_F = op1 s< op2;
  Z_F = op1 == op2;
  V_F = 0;
+}
+
+macro cmpfflags(op1,op2) {
+ N_F = op1 f< op2;
+ Z_F = op1 f== op2;
+ V_F = 0;
+ C_F = 0;
 }
 
 macro set_field(f, pos, sz, addr) {
@@ -365,8 +377,11 @@ eal_a: "@L^"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; exp
 #  quad
 eaq: "S^#"^litval is mode67=0 & litval { export *[const]:8 litval; }
 eaq: reg is mode=5 & reg {
-  reg1:4 = *[register]:4 (reg+1);
-  tmp:8 = zext(reg) + zext(reg1 << 32);
+  rptr:4 = &reg + 4;
+  reg1 = *[register]rptr;
+  tmp:8 = reg1;
+  tmp = zext(tmp << 32);
+  tmp = tmp + zext(reg);
   export tmp;
 }
 eaq: (reg) is mode=6 & reg { export *:8 reg; }
@@ -424,12 +439,27 @@ rlx2: eal is eal { tmp = eal; export tmp; }
 rlx3: eal is eal { tmp = eal; export tmp; }
 rlx4: eal is eal { tmp = eal; export tmp; }
 
+# readable float F
+rfx: eal is eal { tmp = eal; export tmp; }
+rfx2: eal is eal { tmp = eal; export tmp; }
+
+# readable float D
+rdx: eaq is eaq { tmp = eaq; export tmp; }
+rdx2: eaq is eaq { tmp = eaq; export tmp; }
+
 # fixme: ensure writable effective address
+# modifiable <size> <anything>
 mbx: eab is eab { tmp = eab; export tmp; }
 mwx: eaw is eaw { tmp = eaw; export tmp; }
 mlx: eal is eal { tmp = eal; export tmp; }
 mlx2: eal is eal { tmp = eal; export tmp; }
 mqx: eaq is eaq { tmp = eaq; export tmp; }
+
+# modifiable float F
+mfx: mlx is mlx { tmp = mlx; export tmp; }
+
+# modifiable float D
+mdx: mqx is mqx { tmp = mqx; export tmp; }
 
 eab_a2: eab_a is eab_a { tmp = eab_a; export tmp; }
 
@@ -973,17 +1003,19 @@ eab_a2: eab_a is eab_a { tmp = eab_a; export tmp; }
 }
 
 :CASEB eab, rbx, rbx2 is opcode=0x8f; eab; rbx; rbx2 {
-#  local tmp:1 = eab - rbx;
+  local tmp:1 = eab - rbx; # offset into jump table (of words)
+  local table:4 = inst_next;
   local offset:4;
-#  if (tmp > rbx2) goto <not_lequ>;
-#  idx = tmp + tmp; # offset table has words
-#  ptr:4 = inst_next + sext(idx); # ptr into table
-#  offset = sext(*:2 ptr); # get table entry
-#  goto <end>;
-#<not_lequ>
-  offset = 2*(zext(rbx2) + 1) + 1; # skip to end of table
-#<end>
-  goto [inst_next + offset];
+  if (tmp > rbx2) goto <not_lequ>; # unsigned compare !, also break out here if tmp is 'negative'
+  idx = tmp + tmp; # offset table has words
+  ptr:4 = table + sext(idx); # ptr into table
+  offset = sext(*:2 ptr); # get table entry
+  goto <end>;
+<not_lequ>
+  offset = 2*(zext(rbx2) + 1); # skip to end of table
+<end>
+  loc = inst_next + offset;
+  goto [loc];
 }
 :CASEW eaw, rwx, rwx2 is opcode=0xaf; eaw; rwx; rwx2 {
   local tmp:2 = eaw - rwx;
@@ -1059,6 +1091,7 @@ eab_a2: eab_a is eab_a { tmp = eab_a; export tmp; }
 # Miscellaneous Instructions
 #=========================================================================
 
+# FIXME unpack/pack from condition flags
 :BICPSW eaw is opcode=0xb9; eaw { PSW = PSW & ~eaw; }
 :BISPSW eaw is opcode=0xb8; eaw { PSW = PSW | eaw; }
 
@@ -1183,6 +1216,294 @@ macro pushr(reg) {
 }
 
 :XFC is opcode=0xfc { }
+
+#=========================================================================
+# Queue Instructions
+#=========================================================================
+# FIXME
+
+:INSQHI eab, eaq is opcode=0x5c; eab; eaq {
+}
+:INSQTI eab, eaq is opcode=0x5d; eab; eaq {
+}
+:INSQUE eab, mbx is opcode=0x0e; eab; mbx {
+}
+:REMQHI eaq, eal is opcode=0x5e; eaq; eal {
+}
+:REMQTI eaq, eal is opcode=0x5f; eaq; eal {
+}
+:REMQUE eab, eal is opcode=0x0f; eab; eal {
+}
+
+#=========================================================================
+# Floating-Point Instructions
+#=========================================================================
+# FIXME
+
+:ADDF2 rfx, mfx is opcode=0x40; rfx; mfx {
+  mfx = mfx f+ rfx;
+  resfflags(mfx);
+  V_F = 0;
+  C_F = 0;
+}
+:ADDF3 rfx, rfx2, mfx is opcode=0x41; rfx; rfx2; mfx {
+  mfx = rfx f+ rfx2;
+  resfflags(mfx);
+  V_F = 0;
+  C_F = 0;
+}
+:ADDD2 rdx, mdx is opcode=0x60; rdx; mdx {
+  mdx = mdx f+ rdx;
+  resfflags(mdx);
+  V_F = 0;
+  C_F = 0;
+}
+:ADDD3 rdx, rdx2, mdx is opcode=0x61; rdx; rdx2; mdx {
+  mdx = rdx f+ rdx2;
+  resfflags(mdx);
+  V_F = 0;
+  C_F = 0;
+}
+
+:CMPF rfx, rfx2 is opcode=0x51; rfx; rfx2 {
+  cmpfflags(rfx,rfx2);
+}
+:CMPD rdx, rdx2 is opcode=0x71; rdx; rdx2 {
+  cmpfflags(rdx,rdx2);
+}
+
+:CVTBF rbx, mfx is opcode=0x4c; rbx; mfx {
+  mfx = int2float(rbx);
+}
+:CVTWF rwx, mfx is opcode=0x4d; rwx; mfx {
+  mfx = int2float(rwx);
+}
+:CVTLF rlx, mfx is opcode=0x4e; rlx; mfx {
+  mfx = int2float(rlx);
+}
+:CVTBD rbx, mdx is opcode=0x6c; rbx; mdx {
+  mdx = int2float(rbx);
+}
+:CVTWD rwx, mdx is opcode=0x6d; rwx; mdx {
+  mdx = int2float(rwx);
+}
+:CVTLD rlx, mdx is opcode=0x6e; rlx; mdx {
+  mdx = int2float(rlx);
+}
+:CVTFB rfx, mbx is opcode=0x48; rfx; mbx {
+  mbx = trunc(rfx);
+}
+:CVTFW rfx, mwx is opcode=0x49; rfx; mwx {
+  mwx = trunc(rfx);
+}
+:CVTFL rfx, mlx is opcode=0x4a; rfx; mlx {
+  mlx = trunc(rfx);
+}
+:CVTDB rdx, mbx is opcode=0x68; rdx; mbx {
+  mbx = trunc(rdx);
+}
+:CVTDW rdx, mwx is opcode=0x69; rdx; mwx {
+  mwx = trunc(rdx);
+  resflags(mwx);
+  C_F = 0;
+}
+:CVTDL rdx, mlx is opcode=0x6a; rdx; mlx {
+  mlx = trunc(rdx);
+  resflags(mlx);
+  C_F = 0;
+}
+:CVTFD rfx, mdx is opcode=0x56; rfx; mdx {
+  mdx = float2float(rfx);
+  resfflags(mdx);
+  C_F = 0;
+}
+:CVTDF rdx, mfx is opcode=0x76; rdx; mfx {
+  mfx = float2float(rdx);
+  resfflags(mfx);
+  C_F = 0;
+}
+
+:DIVF2 rfx, mfx is opcode=0x46; rfx; mfx {
+  mfx = mfx f/ rfx;
+  resfflags(mfx);
+  C_F = 0;
+}
+:DIVF3 rfx, rfx2, mfx is opcode=0x47; rfx; rfx2; mfx {
+  mfx = rfx f/ rfx2;
+  resfflags(mfx);
+  C_F = 0;
+}
+
+:DIVD2 rdx, mdx is opcode=0x66; rdx; mdx {
+  mdx = mdx f/ rdx;
+  resfflags(mdx);
+  C_F = 0;
+}
+:DIVD3 rdx, rdx2, mdx is opcode=0x67; rdx; rdx2; mdx {
+  mdx = rdx f/ rdx2;
+  resfflags(mdx);
+  C_F = 0;
+}
+
+:EMODF rfx, rbx, rfx2, mlx, mfx is opcode=0x54; rfx; rbx; rfx2; mlx; mfx {
+  product = rfx f* rfx2;
+  mlx = trunc(product);   # integer part
+  mfx = product - int2float(mlx); # fractional part
+  resfflags(mfx);
+  C_F = 0;
+}
+
+:EMODD rdx, rbx, rdx2, mlx, mdx is opcode=0x74; rdx; rbx; rdx2; mlx; mdx {
+  product = rdx f* rdx2;
+  mlx = trunc(product);   # integer part
+  mdx = product - int2float(mlx); # fractional part
+  resfflags(mdx);
+  C_F = 0;
+}
+
+:MNEGF rfx, mfx is opcode=0x52; rfx; mfx {
+  mfx = -rfx;
+  resfflags(mfx);
+  C_F = 0;
+  V_F = 0;
+}
+:MNEGD rdx, mdx is opcode=0x72; rdx; mdx {
+  mdx = -rdx;
+  resfflags(mdx);
+  C_F = 0;
+  V_F = 0;
+}
+
+:MOVF rfx, mfx is opcode=0x50; rfx; mfx {
+  mfx = rfx;
+  resfflags(mfx);
+  V_F = 0;
+}
+:MOVD rdx, mdx is opcode=0x70; rdx; mdx {
+  mdx = rdx;
+  resfflags(mdx);
+  V_F = 0;
+}
+
+:MULF2 rfx, mfx is opcode=0x44; rfx; mfx {
+  mfx = mfx f* rfx;
+  resfflags(mfx);
+  V_F = 0;
+  C_F = 0;
+}
+:MULF3 rfx, rfx2, mfx is opcode=0x45; rfx; rfx2; mfx {
+  mfx = rfx f* rfx2;
+  resfflags(mfx);
+  V_F = 0;
+  C_F = 0;
+}
+:MULD2 rdx, mdx is opcode=0x64; rdx; mdx {
+  mdx = mdx f* rdx;
+  resfflags(mdx);
+  V_F = 0;
+  C_F = 0;
+}
+:MULD3 rdx, rdx2, mdx is opcode=0x65; rdx; rdx2; mdx {
+  mdx = rdx f* rdx2;
+  resfflags(mdx);
+  V_F = 0;
+  C_F = 0;
+}
+
+:POLYF rfx, mwx, eab_a is opcode=0x55; rfx; mwx; eab_a {
+  mwx = 0; # FIXME
+}
+:POLYD rdx, mwx, eab_a is opcode=0x75; rdx; mwx; eab_a {
+  mwx = 0; # FIXME
+}
+
+:SUBF2 rfx, mfx is opcode=0x42; rfx; mfx {
+  mfx = mfx f- rfx;
+  resfflags(mfx);
+  V_F = 0;
+  C_F = 0;
+}
+:SUBF3 rfx, rfx2, mfx is opcode=0x43; rfx; rfx2; mfx {
+  mfx = rfx f- rfx2;
+  resfflags(mfx);
+  V_F = 0;
+  C_F = 0;
+}
+:SUBD2 rdx, mdx is opcode=0x62; rdx; mdx {
+  mdx = mdx f- rdx;
+  resfflags(mdx);
+  V_F = 0;
+  C_F = 0;
+}
+:SUBD3 rdx, rdx2, mdx is opcode=0x63; rdx; rdx2; mdx {
+  mdx = rdx f- rdx2;
+  resfflags(mdx);
+  V_F = 0;
+  C_F = 0;
+}
+
+:TSTF rfx is opcode=0x53; rfx {
+  resfflags(rfx);
+  V_F = 0;
+  C_F = 0;
+}
+:TSTD rdx is opcode=0x73; rdx {
+  resfflags(rdx);
+  V_F = 0;
+  C_F = 0;
+}
+
+#=========================================================================
+# Character-String Instructions
+#=========================================================================
+# FIXME
+
+:CMPC3 is opcode=0x29 { }
+:CMPC5 is opcode=0x2d { }
+:LOCC is opcode=0x3a { }
+:MATCHC is opcode=0x39 { }
+:MOVC3 is opcode=0x28 { }
+:MOVC5 is opcode=0x2c { }
+:MOVTC is opcode=0x2e { }
+:MOVTUC is opcode=0x2f { }
+:SCANC is opcode=0x2a { }
+:SKPC is opcode=0x3b { }
+:SPANC is opcode=0x2b { }
+
+#=========================================================================
+# Cyclic Redundancy Check Instructions
+#=========================================================================
+# FIXME
+
+:CRC is opcode=0x0b { }
+
+#=========================================================================
+# Decimal-String Instructions
+#=========================================================================
+# FIXME
+
+:ADDP4 is opcode=0x20 { }
+:ADDP6 is opcode=0x21 { }
+:ASHP is opcode=0xf8 { }
+:CMPP3 is opcode=0x35 { }
+:CMPP4 is opcode=0x37 { }
+:CVTLP is opcode=0xf9 { }
+:CVTPL is opcode=0x36 { }
+:CVTPS is opcode=0x08 { }
+:CVTPT is opcode=0x24 { }
+:CVTSP is opcode=0x09 { }
+:CVTTP is opcode=0x26 { }
+:DIVP is opcode=0x27 { }
+:MOVP is opcode=0x34 { }
+:MULP is opcode=0x25 { }
+:SUBP4 is opcode=0x22 { }
+:SUBP6 is opcode=0x23 { }
+
+#=========================================================================
+# Edit Instructions
+#=========================================================================
+# FIXME
+
 
 # move to processor register
 :MFTR eal, procreg is opcode=0xda; eal; procreg {
