@@ -432,11 +432,12 @@ eaq_a: "L^"^reladdr32 is mode=14 & reg=15; reladdr32 { export reladdr32; }
 eaq_a: "@L^"^simm32(reg) is mode=15 & reg; simm32 { oa = reg + simm32; ptr = *:4 oa; export ptr; }
 eaq_a: "@L^"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export ptr; }
 
-#  byte indexed - not sure how to implement this
-#base: loc is eal { ptr:4 = loc; export ptr; }
-#eab: base(reg) is mode=4 & reg; base { oa = base + 1*reg; export *:1 oa; }
-#eaw: base(reg) is mode=4 & reg; base { oa = base + 2*reg; export *:2 oa; }
-#eal: base(reg) is mode=4 & reg; base { oa = base + 4*reg; export *:4 oa; }
+# indexed
+eab: eab_a[reg] is mode=4 & reg; eab_a { ptr:4 = eab_a + sext(reg); export *:1 ptr; }
+eaw: eaw_a[reg] is mode=4 & reg; eaw_a { ptr:4 = eaw_a + sext(2 * reg); export *:2 ptr; }
+eal: eal_a[reg] is mode=4 & reg; eal_a { ptr:4 = eal_a + sext(4 * reg); export *:4 ptr; }
+eaq: eaq_a[reg] is mode=4 & reg; eaq_a { ptr:4 = eaq_a + sext(8 * reg); export *:8 ptr; }
+
 
 # readable <size> <anything>
 rbx: eab is eab { tmp = eab; export tmp; }
