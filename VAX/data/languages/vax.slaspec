@@ -472,6 +472,7 @@ mfx: mlx is mlx { tmp = mlx; export tmp; }
 mdx: mqx is mqx { tmp = mqx; export tmp; }
 
 eab_a2: eab_a is eab_a { tmp = eab_a; export tmp; }
+eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
 
 #=========================================================================
 # Integer-Arithmetic and Logical Instructions
@@ -1446,17 +1447,17 @@ eab_a2: eab_a is eab_a { tmp = eab_a; export tmp; }
 #=========================================================================
 # FIXME
 
-:CMPC3 is opcode=0x29 unimpl
-:CMPC5 is opcode=0x2d unimpl
-:LOCC is opcode=0x3a unimpl
-:MATCHC is opcode=0x39 unimpl
-:MOVC3 is opcode=0x28 unimpl
-:MOVC5 is opcode=0x2c unimpl
-:MOVTC is opcode=0x2e unimpl
-:MOVTUC is opcode=0x2f unimpl
-:SCANC is opcode=0x2a unimpl
-:SKPC is opcode=0x3b unimpl
-:SPANC is opcode=0x2b unimpl
+:CMPC3 rwx, eab_a, eab_a2 is opcode=0x29; rwx; eab_a; eab_a2 unimpl
+:CMPC5 rwx, eab_a, eab, rwx2, eab_a2 is opcode=0x2d; rwx; eab_a; eab; rwx2; eab_a2 unimpl
+:LOCC eab, eaw, eab_a is opcode=0x3a; eab; eaw; eab_a unimpl
+:MATCHC rwx, eab_a, rwx2, eab_a2 is opcode=0x39; rwx; eab_a; rwx2; eab_a2 unimpl
+:MOVC3 rwx, eab_a, eab_a2 is opcode=0x28; rwx; eab_a; eab_a2 unimpl
+:MOVC5 rwx, eab_a, eab, rwx2, eab_a2 is opcode=0x2c; rwx; eab_a; eab; rwx2; eab_a2 unimpl
+:MOVTC rwx, eab_a, eab, eab_a2, rwx2, eab_a3 is opcode=0x2e; rwx; eab_a; eab; eab_a2; rwx2; eab_a3 unimpl
+:MOVTUC rwx, eab_a, eab, eab_a2, rwx2, eab_a3 is opcode=0x2f; rwx; eab_a; eab; eab_a2; rwx2; eab_a3 unimpl
+:SCANC rwx, eab_a, eab_a2, rbx is opcode=0x2a; rwx; eab_a; eab_a2; rbx unimpl
+:SKPC rbx, rwx, eab_a is opcode=0x3b; rbx; rwx; eab_a unimpl
+:SPANC rwx, eab_a, eab_a2, rbx is opcode=0x2b; rwx; eab_a; eab_a2; rbx unimpl
 
 #=========================================================================
 # Cyclic Redundancy Check Instructions
