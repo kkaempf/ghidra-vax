@@ -1531,6 +1531,25 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
 #=========================================================================
 # FIXME
 
+
+#=========================================================================
+# Validating Address Arguments
+#=========================================================================
+# FIXME
+
+:PROBER rbx, rwx, eab_a is opcode=0x0c; rbx; rwx; eab_a {
+  N_F = 0;
+  Z_F = 0; # assume readable
+  V_F = 0;
+}
+
+:PROBEW rbx, rwx, eab_a is opcode=0x0d; rbx; rwx; eab_a {
+  N_F = 0;
+  Z_F = 0; # assume writable
+  V_F = 0;
+}
+
+
 #=========================================================================
 # Instructions related to exceptions and interrupts
 #=========================================================================
@@ -1551,8 +1570,8 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
 :SVPCTX is opcode=0x07 unimpl
 
 # move to processor register
-:MFTR eal, procreg is opcode=0xda; eal; procreg {
-  procreg = eal;
+:MTPR rlx, procreg is opcode=0xda; rlx; procreg {
+  procreg = rlx;
 }
 # move from processor register
 :MFPR procreg, mlx is opcode=0xdb; procreg; mlx {
