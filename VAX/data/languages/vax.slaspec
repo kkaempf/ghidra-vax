@@ -1039,7 +1039,7 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
 }
 
 :CASEB eab, rbx, rbx2 is opcode=0x8f; eab; rbx; rbx2 {
-  local tmp:1 = eab - rbx; # offset into jump table (of words)
+  local tmp = eab - rbx; # offset into jump table (of words)
   if (tmp > rbx2) goto <not_lequ>; # unsigned compare !, also break out here if tmp is 'negative'
   local table = inst_next;
   local offset:4 = 0;
@@ -1055,30 +1055,36 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
   goto [ptr];
 }
 :CASEW eaw, rwx, rwx2 is opcode=0xaf; eaw; rwx; rwx2 {
-  local tmp:2 = eaw - rwx;
-  local offset:4;
-  if (tmp > rwx2) goto <not_lequ>;
-  idx = tmp + tmp; # offset table has words
-  ptr:4 = inst_next + sext(idx); # ptr into table
+  local tmp = eaw - rwx; # offset into jump table (of words)
+  if (tmp > rwx2) goto <not_lequ>; # unsigned compare !, also break out here if tmp is 'negative'
+  local table = inst_next;
+  local offset:4 = 0;
+  idx:4 = zext(tmp) + zext(tmp); # offset table has words
+  ptr:4 = table + idx; # ptr into table
   offset = sext(*:2 ptr); # get table entry
   goto <end>;
 <not_lequ>
-  offset = 2*(zext(rwx2) + 1); # skip to end of table
+  offset = 2*zext(rwx2) + 2; # skip to end of table
 <end>
-  goto [inst_next + offset];
+  ptr = inst_next;
+  ptr = ptr + offset;
+  goto [ptr];
 }
 :CASEL eal, rlx, rlx2 is opcode=0xcf; eal; rlx; rlx2 {
-  local tmp:4 = eal - rlx;
-  local offset:4;
-  if (tmp > rlx2) goto <not_lequ>;
-  idx = tmp + tmp; # offset table has words
-  ptr:4 = inst_next + idx; # ptr into table
+  local tmp = eal - rlx; # offset into jump table (of words)
+  if (tmp > rlx2) goto <not_lequ>; # unsigned compare !, also break out here if tmp is 'negative'
+  local table = inst_next;
+  local offset:4 = 0;
+  idx:4 = tmp + tmp; # offset table has words
+  ptr:4 = table + idx; # ptr into table
   offset = sext(*:2 ptr); # get table entry
   goto <end>;
 <not_lequ>
-  offset = 2*(rlx2 + 1); # skip to end of table
+  offset = 2*rlx2 + 2; # skip to end of table
 <end>
-  goto [inst_next + offset];
+  ptr = inst_next;
+  ptr = ptr + offset;
+  goto [ptr];
 }
 
 :JMP eab_a is opcode=0x17; eab_a {
