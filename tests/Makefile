@@ -5,3 +5,5 @@ tests: *.hex
  
 clean:
 	rm -rf *.out
+	rm -rf core.*
+	rm -rf *~
