@@ -5,11 +5,19 @@
 # Licensed under the Apache 2.0 license
 #
 
+
+#--------------------------------------------------------------------------
+# Spaces
+
 define endian=little;
 define alignment=1;
 define space ram      type=ram_space      size=4  wordsize=1 default;
 define space register type=register_space size=4;
 
+
+#--------------------------------------------------------------------------
+# Registers
+                                     #0  4  8  c 10 14 18 1c 20 24  28  2c 30 34 38 3c 
 define register offset=0x00 size=4 [ R0 R1 R2 R3 R4 R5 R6 R7 R8 R9 R10 R11 AP FP SP PC ];
 
 # processor status longword
@@ -20,6 +28,47 @@ define register offset=0x40 size=2 [ _ PSW ];
 
 # condition flags
 define register offset=0x50 size=1   [ IS_F CUR_MOD PRV_MOD IPL_F DV_F FU_F IV_F T_F N_F Z_F V_F C_F ];
+
+# processor registers
+define register offset=0x100 size=4 [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 PRx07
+                               P0BR  P0LR  P1BR  P1LR  SBR   SLR   CPUID PRx0f
+                               PCBB  SCBB  IPL   ASTLVL SIRR SISR  PRx16 PRx17
+                               ICCS  NICR  ICR   TODR  PRx1c PRx1d PRx1e PRx1f
+                               RXCS  RXDB  TXCS  TXDB  PRx24 PRx25 PRx26 PRx27
+                               PRx28 PRx29 PRx2a PRx2b PRx2c PRx2d PRx2e PRx2f
+                               PRx30 PRx31 PRx32 PRx33 PRx34 PRx35 PRx36 PRx37
+                               MAPEN TBIA  TBIS  PRx3b PRx3c PME   SID   TBCHK
+                               PRx40 PRx41 PRx42 PRx43 PRx44 PRx45 PRx46 PRx47
+                               PRx48 PRx49 PRx4a PRx4b PRx4c PRx4d PRx4e PRx4f
+                               PRx50 PRx51 PRx52 PRx53 PRx54 PRx55 PRx56 PRx57
+                               PRx58 PRx59 PRx5a PRx5b PRx5c PRx5d PRx5e PRx5f
+                               PRx60 PRx61 PRx62 PRx63 PRx64 PRx65 PRx66 PRx67
+                               PRx68 PRx69 PRx6a PRx6b PRx6c PRx6d PRx6e PRx6f
+                               PRx70 PRx71 PRx72 PRx73 PRx74 PRx75 PRx76 PRx77
+                               PRx78 PRx79 PRx7a PRx7b PRx7c PRx7d PRx7e PRx7f
+                               PRx80 PRx81 PRx82 PRx83 PRx84 PRx85 PRx86 PRx87
+                               PRx88 PRx89 PRx8a PRx8b PRx8c PRx8d PRx8e PRx8f
+                               VPSR  VAER  VMAC  VTBIA VSAR  PRx95 PRx96 PRx97
+                               PRx98 PRx99 PRx9a PRx9b PRx9c PRx9d PRx9e PRx9f
+                               PRxa0 PRxa1 PRxa2 PRxa3 PRxa4 PRxa5 PRxa6 PRxa7
+                               PRxa8 PRxa9 PRxaa PRxab PRxac PRxad PRxae PRxaf
+                               PRxb0 PRxb1 PRxb2 PRxb3 PRxb4 PRxb5 PRxb6 PRxb7
+                               PRxb8 PRxb9 PRxba PRxbb PRxbc PRxbd PRxbe PRxbf
+                               PRxc0 PRxc1 PRxc2 PRxc3 PRxc4 PRxc5 PRxc6 PRxc7
+                               PRxc8 PRxc9 PRxca PRxcb PRxcc PRxcd PRxce PRxcf
+                               PRxd0 PRxd1 PRxd2 PRxd3 PRxd4 PRxd5 PRxd6 PRxd7
+                               PRxd8 PRxd9 PRxda PRxdb PRxdc PRxdd PRxde PRxdf
+                               PRxe0 PRxe1 PRxe2 PRxe3 PRxe4 PRxe5 PRxe6 PRxe7
+                               PRxe8 PRxe9 PRxea PRxeb PRxec PRxed PRxee PRxef
+                               PRxf0 PRxf1 PRxf2 PRxf3 PRxf4 PRxf5 PRxf6 PRxf7
+                               PRxf8 PRxf9 PRxfa PRxfb PRxfc PRxfd PRxfe PRxff
+                               ];
+
+define register offset=0x1000 size=4  [ loc ];
+
+
+#--------------------------------------------------------------------------
+# Macros
 
 macro resflags(result) {
  N_F = result s< 0;
@@ -85,40 +134,9 @@ macro pop(ret) {
   SP = SP + 4;
 }
 
-# processor registers
-define register offset=0x100 size=4 [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 PRx07
-                               P0BR  P0LR  P1BR  P1LR  SBR   SLR   CPUID PRx0f
-                               PCBB  SCBB  IPL   ASTLVL SIRR SISR  PRx16 PRx17
-                               ICCS  NICR  ICR   TODR  PRx1c PRx1d PRx1e PRx1f
-                               RXCS  RXDB  TXCS  TXDB  PRx24 PRx25 PRx26 PRx27
-                               PRx28 PRx29 PRx2a PRx2b PRx2c PRx2d PRx2e PRx2f
-                               PRx30 PRx31 PRx32 PRx33 PRx34 PRx35 PRx36 PRx37
-                               MAPEN TBIA  TBIS  PRx3b PRx3c PME   SID   TBCHK
-                               PRx40 PRx41 PRx42 PRx43 PRx44 PRx45 PRx46 PRx47
-                               PRx48 PRx49 PRx4a PRx4b PRx4c PRx4d PRx4e PRx4f
-                               PRx50 PRx51 PRx52 PRx53 PRx54 PRx55 PRx56 PRx57
-                               PRx58 PRx59 PRx5a PRx5b PRx5c PRx5d PRx5e PRx5f
-                               PRx60 PRx61 PRx62 PRx63 PRx64 PRx65 PRx66 PRx67
-                               PRx68 PRx69 PRx6a PRx6b PRx6c PRx6d PRx6e PRx6f
-                               PRx70 PRx71 PRx72 PRx73 PRx74 PRx75 PRx76 PRx77
-                               PRx78 PRx79 PRx7a PRx7b PRx7c PRx7d PRx7e PRx7f
-                               PRx80 PRx81 PRx82 PRx83 PRx84 PRx85 PRx86 PRx87
-                               PRx88 PRx89 PRx8a PRx8b PRx8c PRx8d PRx8e PRx8f
-                               VPSR  VAER  VMAC  VTBIA VSAR  PRx95 PRx96 PRx97
-                               PRx98 PRx99 PRx9a PRx9b PRx9c PRx9d PRx9e PRx9f
-                               PRxa0 PRxa1 PRxa2 PRxa3 PRxa4 PRxa5 PRxa6 PRxa7
-                               PRxa8 PRxa9 PRxaa PRxab PRxac PRxad PRxae PRxaf
-                               PRxb0 PRxb1 PRxb2 PRxb3 PRxb4 PRxb5 PRxb6 PRxb7
-                               PRxb8 PRxb9 PRxba PRxbb PRxbc PRxbd PRxbe PRxbf
-                               PRxc0 PRxc1 PRxc2 PRxc3 PRxc4 PRxc5 PRxc6 PRxc7
-                               PRxc8 PRxc9 PRxca PRxcb PRxcc PRxcd PRxce PRxcf
-                               PRxd0 PRxd1 PRxd2 PRxd3 PRxd4 PRxd5 PRxd6 PRxd7
-                               PRxd8 PRxd9 PRxda PRxdb PRxdc PRxdd PRxde PRxdf
-                               PRxe0 PRxe1 PRxe2 PRxe3 PRxe4 PRxe5 PRxe6 PRxe7
-                               PRxe8 PRxe9 PRxea PRxeb PRxec PRxed PRxee PRxef
-                               PRxf0 PRxf1 PRxf2 PRxf3 PRxf4 PRxf5 PRxf6 PRxf7
-                               PRxf8 PRxf9 PRxfa PRxfb PRxfc PRxfd PRxfe PRxff
-                               ];
+
+#--------------------------------------------------------------------------
+# Tokens
 
 # 8bit immediate - byte
 define token byte (8)
@@ -170,12 +188,16 @@ define token addrmode (8)
         reg     = (0,3) # register
 ;
 
-attach variables [ reg ] [ R0 R1 R2 R3 R4 R5 R6 R7 R8 R9 R10 R11 AP FP SP PC ];
-
 # processor register
 define token preg (8)
         procreg = (0,7)
 ;
+
+
+#--------------------------------------------------------------------------
+# Variables
+
+attach variables [ reg ] [ R0 R1 R2 R3 R4 R5 R6 R7 R8 R9 R10 R11 AP FP SP PC ];
 
 attach variables [ procreg ] [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 PRx07
                                P0BR  P0LR  P1BR  P1LR  SBR   SLR   CPUID PRx0f
@@ -211,11 +233,13 @@ attach variables [ procreg ] [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 PRx07
                                PRxf8 PRxf9 PRxfa PRxfb PRxfc PRxfd PRxfe PRxff
                                ];
 
-define register offset=0x1000 size=1  [ contextreg ];
 
-reladdr8: loc is simm8  [ loc = inst_next + simm8; ] { export *:4 loc; }
-reladdr16: loc is simm16  [ loc = inst_next + simm16; ] { export *:4 loc; }
-reladdr32: loc is simm32  [ loc = inst_next + simm32; ] { export *:4 loc; }
+#--------------------------------------------------------------------------
+# Tables
+
+reladdr8: loc is simm8  [ loc = inst_next + simm8; ] { export *[ram]:4 loc; }
+reladdr16: loc is simm16  [ loc = inst_next + simm16; ] { export *[ram]:4 loc; }
+reladdr32: loc is simm32  [ loc = inst_next + simm32; ] { export *[ram]:4 loc; }
 
 # condition codes (for branch)
 
@@ -236,7 +260,7 @@ cc: "CS"  is lownibble=15 { tmp:1 = C_F; export tmp; }
 
 #  byte
 #   0-3: literal
-eab_a: "S^#"^litval is mode67=0 & litval { ptr:4 = inst_next - 1; export ptr; }
+# eab_a - not defined
 eab: "S^#"^litval is mode67=0 & litval { export *[const]:1 litval; }
 #   4: indexed - see below
 #   5: register
@@ -252,7 +276,7 @@ eab: -(reg) is mode=7 & reg { reg = reg - 1; export *:1 reg; }
 eab_a: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 1; export ptr; }
 eab: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 1; export *:1 ptr; }
 #   8: immediate mode
-eab_a: "I^#"^simm8 is mode=8 & reg=15; simm8 { ptr:4 = inst_next - 1; export ptr; } 
+# eab_a doesn't make sense
 eab: "I^#"^simm8 is mode=8 & reg=15; simm8 { export simm8; } 
 #   9: auto increment deferred
 eab_a: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 4; export tmp; }
@@ -319,12 +343,12 @@ eaw: "L^"^reladdr32 is mode=14 & reg=15; reladdr32 { export *:2 reladdr32; }
 eaw: "@L^"^simm32(reg) is mode=15 & reg; simm32 { oa = reg + simm32; ptr = *:4 oa; export *:2 ptr; }
 eaw: "@L^"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export *:2 ptr; }
 
-eaw_a: "S^#"^litval is mode67=0 & litval { ptr:4 = inst_next - 1; export ptr; }
+# eaw_a: "S^#"^litval is mode67=0 & litval { ptr:4 = inst_next - 1; export [ram]ptr; }
 eaw_a: reg is mode=5 & reg { export reg; }
 eaw_a: (reg) is mode=6 & reg { export reg; }
 eaw_a: -(reg) is mode=7 & reg { reg = reg - 2; export reg; }
 eaw_a: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 2; export ptr; }
-eaw_a: "I^#"^simm16 is mode=8 & reg=15; simm16 { ptr:4 = inst_next - 2; export ptr; } 
+# eaw_a: "I^#"^simm16 is mode=8 & reg=15; simm16 { ptr:4 = inst_next - 2; export [ram]ptr; } 
 eaw_a: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 4; export tmp; }
 eaw_a: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export tmp; }
 eaw_a: "B^"^simm8(reg) is mode=10 & reg; simm8 { ptr = reg + simm8; export ptr; }
@@ -362,12 +386,12 @@ eal: "L^"^reladdr32 is mode=14 & reg=15; reladdr32 { export *:4 reladdr32; }
 eal: "@L^"^simm32(reg) is mode=15 & reg; simm32 { oa = reg + simm32; ptr = *:4 oa; export *:4 ptr; }
 eal: "@L^"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export *:4 ptr; }
 
-eal_a: "S^#"^litval is mode67=0 & litval { ptr:4 = inst_next - 1; export ptr; }
+# eal_a: "S^#"^litval is mode67=0 & litval { ptr:4 = inst_next - 1; export [ram]ptr; }
 eal_a: reg is mode=5 & reg { export reg; }
 eal_a: (reg) is mode=6 & reg { export reg; }
 eal_a: -(reg) is mode=7 & reg { reg = reg - 4; export reg; }
 eal_a: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 4; export ptr; }
-eal_a: "I^#"^simm32 is mode=8 & reg=15; simm32 { ptr:4 = inst_next - 4; export ptr; } 
+# eal_a: "I^#"^simm32 is mode=8 & reg=15; simm32 { ptr:4 = inst_next - 4; export [ram]ptr; } 
 eal_a: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 4; export tmp; }
 eal_a: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export tmp; }
 eal_a: "B^"^simm8(reg) is mode=10 & reg; simm8 { ptr = reg + simm8; export ptr; }
@@ -412,11 +436,11 @@ eaq: "L^"^reladdr32 is mode=14 & reg=15; reladdr32 { export *:8 reladdr32; }
 eaq: "@L^"^simm32(reg) is mode=15 & reg; simm32 { oa = reg + simm32; ptr = *:4 oa; export *:8 ptr; }
 eaq: "@L^"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export *:8 ptr; }
 
-eaq_a: "S^#"^litval is mode67=0 & litval { ptr:4 = inst_next - 1; export ptr; }
+# eaq_a: "S^#"^litval is mode67=0 & litval { ptr:4 = inst_next - 1; export [ram]ptr; }
 eaq_a: (reg) is mode=6 & reg { export reg; }
 eaq_a: -(reg) is mode=7 & reg { reg = reg - 8; export reg; }
 eaq_a: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 8; export ptr; }
-eaq_a: "I^#"^simm64 is mode=8 & reg=15; simm64 { export simm64; } 
+# eaq_a: "I^#"^simm64 is mode=8 & reg=15; simm64 { export simm64; } 
 eaq_a: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 8; export tmp; }
 eaq_a: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export tmp; }
 eaq_a: "B^"^simm8(reg) is mode=10 & reg; simm8 { ptr = reg + simm8; export ptr; }
@@ -433,10 +457,10 @@ eaq_a: "@L^"^simm32(reg) is mode=15 & reg; simm32 { oa = reg + simm32; ptr = *:4
 eaq_a: "@L^"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export ptr; }
 
 # indexed
-eab: eab_a[reg] is mode=4 & reg; eab_a { ptr:4 = eab_a + sext(reg); export *:1 ptr; }
-eaw: eaw_a[reg] is mode=4 & reg; eaw_a { ptr:4 = eaw_a + sext(2 * reg); export *:2 ptr; }
-eal: eal_a[reg] is mode=4 & reg; eal_a { ptr:4 = eal_a + sext(4 * reg); export *:4 ptr; }
-eaq: eaq_a[reg] is mode=4 & reg; eaq_a { ptr:4 = eaq_a + sext(8 * reg); export *:8 ptr; }
+eab: eab_a[reg] is mode=4 & reg; eab_a { ptr:4 = eab_a + reg; export *:1 ptr; }
+eaw: eaw_a[reg] is mode=4 & reg; eaw_a { ptr:4 = eaw_a + (2 * reg); export *:2 ptr; }
+eal: eal_a[reg] is mode=4 & reg; eal_a { ptr:4 = eal_a + (4 * reg); export *:4 ptr; }
+eaq: eaq_a[reg] is mode=4 & reg; eaq_a { ptr:4 = eaq_a + (8 * reg); export *:8 ptr; }
 
 
 # readable <size> <anything>
@@ -473,6 +497,11 @@ mdx: mqx is mqx { tmp = mqx; export tmp; }
 
 eab_a2: eab_a is eab_a { tmp = eab_a; export tmp; }
 eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
+
+
+#--------------------------------------------------------------------------
+# Mnemonics
+
 
 #=========================================================================
 # Integer-Arithmetic and Logical Instructions
@@ -999,28 +1028,31 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
 }
 
 :BSBB reladdr8 is opcode=0x10; reladdr8 {
-  push(&:4 inst_next);
+  ptr:4 = inst_next;
+  push(ptr);
   call reladdr8;
 }
 :BSBW reladdr16 is opcode=0x30; reladdr16 {
-  push(&:4 inst_next);
-  call reladdr16;
+  ptr:4 = inst_next;
+  push(ptr);
+  call [reladdr16];
 }
 
 :CASEB eab, rbx, rbx2 is opcode=0x8f; eab; rbx; rbx2 {
   local tmp:1 = eab - rbx; # offset into jump table (of words)
-  local table:4 = &:4 inst_next;
-  local offset;
   if (tmp > rbx2) goto <not_lequ>; # unsigned compare !, also break out here if tmp is 'negative'
-  idx = tmp + tmp; # offset table has words
+  local table = inst_next;
+  local offset:4 = 0;
+  idx:2 = zext(tmp) + zext(tmp); # offset table has words
   ptr:4 = table + sext(idx); # ptr into table
   offset = sext(*:2 ptr); # get table entry
   goto <end>;
 <not_lequ>
-  offset = 2*(zext(rbx2) + 1); # skip to end of table
+  offset = 2*zext(rbx2) + 2; # skip to end of table
 <end>
-  loc:4 = inst_next + offset;
-  goto [loc];
+  ptr = inst_next;
+  ptr = ptr + offset;
+  goto [ptr];
 }
 :CASEW eaw, rwx, rwx2 is opcode=0xaf; eaw; rwx; rwx2 {
   local tmp:2 = eaw - rwx;
@@ -1053,7 +1085,8 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
   goto eab_a;
 }
 :JSB eab_a is opcode=0x16; eab_a {
-  push(&:4 inst_next);
+  ptr:4 = inst_next;
+  push(ptr);
   goto eab_a;
 }
 
@@ -1088,8 +1121,7 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
 }
 :RET is opcode=0x04 {
   pop(PC);
-  loc:4 = PC;
-  return [loc];
+  return [PC];
 }
 
 #=========================================================================
@@ -1101,7 +1133,7 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
 :BISPSW eaw is opcode=0xb8; eaw { PSW = PSW | eaw; }
 
 :BPT is opcode=0x03 unimpl
-:HALT is opcode=0x00 unimpl
+:HALT is opcode=0x00 { goto inst_start; }
 
 :INDEX eal, rlx, rlx2, rlx3, rlx4, mlx is opcode=0x0a; eal; rlx; rlx2; rlx3; rlx4; mlx {
   mlx = (rlx4 + eal) * rlx3;
@@ -1493,6 +1525,13 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
 #=========================================================================
 # FIXME
 
+#=========================================================================
+# Process-Structure Instructions
+#=========================================================================
+# FIXME
+
+:LDPCTX is opcode=0x06 unimpl
+:SVPCTX is opcode=0x07 unimpl
 
 # move to processor register
 :MFTR eal, procreg is opcode=0xda; eal; procreg {
