@@ -1526,6 +1526,17 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
 # FIXME
 
 #=========================================================================
+# Instructions related to exceptions and interrupts
+#=========================================================================
+# FIXME
+
+:REI is opcode=0x02 unimpl
+:CHMK is opcode=0xbc unimpl
+:CHME is opcode=0xbd unimpl
+:CHMS is opcode=0xbe unimpl
+:CHMU is opcode=0xbf unimpl
+
+#=========================================================================
 # Process-Structure Instructions
 #=========================================================================
 # FIXME
