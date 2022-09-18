@@ -1,0 +1,16 @@
+#!/bin/sh
+#
+# test.sh <hex>
+echo "Testing" $@
+TMPDIR="."
+for i in $@; do \
+  echo $i; \
+  j=$(basename $i .hex); \
+  hex=$(tr -d " \n" < $i); \
+  asm=$j.out; \
+  $(sleigh-lift disassemble vax.sla $hex > $asm); \
+  diff -wu $j.asm $asm; \
+  if [ $? -ne 0 ]; then \
+    break; \
+  fi;
+done
