@@ -1082,12 +1082,12 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
 }
 
 :JMP eab_a is opcode=0x17; eab_a {
-  goto eab_a;
+  goto [eab_a];
 }
 :JSB eab_a is opcode=0x16; eab_a {
   ptr:4 = inst_next;
   push(ptr);
-  goto eab_a;
+  goto [eab_a];
 }
 
 :RSB is opcode=0x05 { pop(PC); return [PC]; }
