@@ -2,3 +2,4 @@
 vax.sla
 *.pdf
 core.*
+tests/*.out
