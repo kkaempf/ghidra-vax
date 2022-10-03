@@ -296,7 +296,7 @@ eab: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; exp
 eab_a: "B^"^simm8(reg) is mode=10 & reg; simm8 { ptr = reg + simm8; export ptr; }
 eab: "B^"^simm8(reg) is mode=10 & reg; simm8 { ptr = reg + simm8; export *:1 ptr; }
 #   10: byte relative
-eab_a: "B^"^reladdr8 is mode=10 & reg=15; reladdr8 { export reladdr8; }
+eab_a: "B^"^reladdr8 is mode=10 & reg=15; reladdr8 { tmp:4 = reladdr8; export tmp; }
 eab: "B^"^reladdr8 is mode=10 & reg=15; reladdr8 { export *:1 reladdr8; }
 #   11: byte displacement deferred
 eab_a: "@B^"^simm8(reg) is mode=11 & reg; simm8 { oa = reg + simm8; ptr = *:4 oa; export ptr; }
@@ -308,7 +308,7 @@ eab: "@B^"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export *
 eab_a: "W^"^simm16(reg) is mode=12 & reg; simm16 { ptr = reg + simm16; export ptr; }
 eab: "W^"^simm16(reg) is mode=12 & reg; simm16 { ptr = reg + simm16; export *:1 ptr; }
 #   12: word relative
-eab_a: "W^"^reladdr16 is mode=12 & reg=15; reladdr16 { export reladdr16; }
+eab_a: "W^"^reladdr16 is mode=12 & reg=15; reladdr16 { tmp = reladdr16; export tmp; }
 eab: "W^"^reladdr16 is mode=12 & reg=15; reladdr16 { export *:1 reladdr16; }
 #   13: word displacement deferred
 eab_a: "@W^"^simm16(reg) is mode=13 & reg; simm16 { oa = reg + simm16; ptr = *:4 oa; export ptr; }
@@ -320,7 +320,7 @@ eab: "@W^"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; expor
 eab_a: "L^"^simm32(reg) is mode=14 & reg; simm32 { ptr = reg + simm32; export ptr; }
 eab: "L^"^simm32(reg) is mode=14 & reg; simm32 { ptr = reg + simm32; export *:1 ptr; }
 #   14: long relative
-eab_a: "L^"^reladdr32 is mode=14 & reg=15; reladdr32 { export reladdr32; }
+eab_a: "L^"^reladdr32 is mode=14 & reg=15; reladdr32 { tmp = reladdr32; export tmp; }
 eab: "L^"^reladdr32 is mode=14 & reg=15; reladdr32 { export *:1 reladdr32; }
 #   15: long displacement deferred
 eab_a: "@L^"^simm32(reg) is mode=15 & reg; simm32 { oa = reg + simm32; ptr = *:4 oa; export ptr; }
