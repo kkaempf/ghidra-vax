@@ -67,13 +67,6 @@ define register offset=0x100 size=4 [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 
 define register offset=0x500 size=4  [ loc ];
 
 #--------------------------------------------------------------------------
-# Context
-define register offset=0x600 size=4  contextreg;
-define context contextreg
-  op_addr = (0,3) noflow
-;
-
-#--------------------------------------------------------------------------
 # Macros
 
 macro resflags(result) {
@@ -243,11 +236,9 @@ attach variables [ procreg ] [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 PRx07
 #--------------------------------------------------------------------------
 # Tables
 
-op_code: opcode is opcode [ op_addr = 1; ] { export opcode; }
-
-reladdr8: loc is simm8  [ loc = inst_next + simm8; ] { export *[ram]:4 loc; }
-reladdr16: loc is simm16  [ loc = inst_next + simm16; ] { export *[ram]:4 loc; }
-reladdr32: loc is simm32  [ loc = inst_next + simm32; ] { export *[ram]:4 loc; }
+reladdr8: loc is simm8  [ loc = inst_start + operand_offset + 1 + simm8; ] { export *[ram]:4 loc; }
+reladdr16: loc is simm16  [ loc = inst_start + operand_offset + 2 + simm16; ] { export *[ram]:4 loc; }
+reladdr32: loc is simm32  [ loc = inst_start + operand_offset + 4 + simm32; ] { export *[ram]:4 loc; }
 
 # condition codes (for branch)
 
