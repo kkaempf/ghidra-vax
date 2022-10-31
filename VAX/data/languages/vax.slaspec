@@ -1034,7 +1034,7 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
 :BSBW reladdr16 is opcode=0x30; reladdr16 {
   ptr:4 = inst_next;
   push(ptr);
-  call [reladdr16];
+  call reladdr16;
 }
 
 :CASEB eab, rbx, rbx2 is opcode=0x8f; eab; rbx; rbx2 {
