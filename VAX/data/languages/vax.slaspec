@@ -117,37 +117,43 @@ macro cmpfflags(op1,op2) {
  C_F = 0;
 }
 
-macro get_field(f, pos, sz, addr) {
-  if (sz != 0) goto <get_field_size_nonzero>;
+macro get_field(f, pos, size, addr, signed_flag) {
+  local sz:1 = size;
+  local sgn:1 = signed_flag;
+  if (sz != 0) goto <size_nonzero>;
   # size is zero
   f = 0;
   goto <exit_get_field>;
-<get_field_size_nonzero>
+<size_nonzero>
   local tmp:8 = 0;
   # compute bit position (0..7)
-  local pos20:1 = pos[0,2];
-  local highest_bit = (zext(sz) - 1) + pos20;
-  local lowest_bit = pos20;
-  if (statusreg != 0) goto <get_field_register>;
+  local pos20:1 = pos[0,3];
+  if (statusreg != 0) goto <in_register>;
   # compute byte position
   local ptr:4 = addr + sext(pos[3,29]); # 29 bits, counting from 3
   tmp = *:8 ptr;
-  goto <get_field_from_tmp>;
-<get_field_register>
+  goto <extract_from_tmp>;
+<in_register>
   # addr is a register
-  if ((pos + zext(sz)) > 32) goto <get_field_doublereg>;
+  if ((pos + zext(sz)) > 32) goto <in_doublereg>;
   # single register
   tmp = zext(addr);
-  goto <get_field_from_tmp>;
-<get_field_doublereg>  
+  goto <extract_from_tmp>;
+<in_doublereg>  
   local rptr:4 = &addr; # compute Rn ptr
   tmp = *[register]rptr; # get Rn:Rn+1
-<get_field_from_tmp>
+<extract_from_tmp>
   tmp = tmp >> pos20;
   local mask:4 = -1;
   # leave 'size' bits 1 in mask
   mask = mask >> (32 - zext(sz));
   f = tmp:4 & mask;
+  if (sgn == 0) goto <exit_get_field>;
+  # sign extend
+  mask = 1 << (zext(sz)-1); # mask for highest bit
+  if ((f & mask) == 0) goto <exit_get_field>;
+  mask = -1 << zext(sz);
+  f = f | mask;
 <exit_get_field>
 }
 
@@ -893,25 +899,25 @@ field: eab_a is is_reg = 0 & eab_a { export eab_a; }
 #     pos.rl, size.rb, base.vb, {field.rv}, src.rl
 :CMPV eal, eab, field, rlx is opcode=0xec; eal; eab; field; rlx {
   local f:4;
-  get_field(f, eal, eab, field);
+  get_field(f, eal, eab, field, 1);
   cmpflags(sext(f), rlx);
 }
 #      pos.rl, size.rb, base.vb, {field.rv}, src.rl
 :CMPZV eal, eab, field, rlx is opcode=0xed; eal; eab; field; rlx {
   local f:4;
-  get_field(f, eal, eab, field);
+  get_field(f, eal, eab, field, 0);
   cmpflags(zext(f), rlx);
 }
 
 :EXTV eal, eab, field, mlx is opcode=0xee; eal; eab; field; mlx {
   local f:4;
-  get_field(f, eal, eab, field);
+  get_field(f, eal, eab, field, 1);
   mlx = f;
   resflags(f);
 }
 :EXTZV eal, eab, field, mlx is opcode=0xef; eal; eab; field; mlx {
   local f:4;
-  get_field(f, eal, eab, field);
+  get_field(f, eal, eab, field, 0);
   mlx = f;
   resflags(f);
 }
@@ -972,22 +978,19 @@ field: eab_a is is_reg = 0 & eab_a { export eab_a; }
 
 :BBS eal, field, reladdr8 is opcode=0xe0; eal; field; reladdr8 {
   local f:4;
-  local sz:1 = 1;
-  get_field(f, eal, sz, field);
+  get_field(f, eal, 1, field, 0);
   if (f == 1) goto reladdr8;
 }
 :BBC eal, field, reladdr8 is opcode=0xe1; eal; field; reladdr8 {
   local f:4;
-  local sz:1 = 1;
-  get_field(f, eal, sz, field);
+  get_field(f, eal, 1, field, 0);
   if (f == 0) goto reladdr8;
 }
 :BBSS eal, field, reladdr8 is opcode=0xe2; eal; field; reladdr8 {
   teststate:1 = 1;
 #  newstate:1 = 1;
   local tmp:4;
-  local sz:1 = 1;
-  get_field(tmp, eal, sz, field);
+  get_field(tmp, eal, 1, field, 0);
   # FIXME write field
   if (tmp:1 == teststate) goto reladdr8;
 }
@@ -995,8 +998,7 @@ field: eab_a is is_reg = 0 & eab_a { export eab_a; }
   teststate:1 = 0;
 #  newstate:1 = 1;
   local tmp:4;
-  local sz:1 = 1;
-  get_field(tmp, eal, sz, field);
+  get_field(tmp, eal, 1, field, 0);
   # FIXME write field
   if (tmp:1 == teststate) goto reladdr8;
 }
@@ -1004,8 +1006,7 @@ field: eab_a is is_reg = 0 & eab_a { export eab_a; }
   teststate:1 = 1;
 #  newstate:1 = 0;
   local tmp:4;
-  local sz:1 = 1;
-  get_field(tmp, eal, sz, field);
+  get_field(tmp, eal, 1, field, 0);
   # FIXME write field
   if (tmp:1 == teststate) goto reladdr8;
 }
@@ -1013,8 +1014,7 @@ field: eab_a is is_reg = 0 & eab_a { export eab_a; }
   teststate:1 = 0;
 #  newstate:1 = 0;
   local tmp:4;
-  local sz:1 = 1;
-  get_field(tmp, eal, sz, field);
+  get_field(tmp, eal, 1, field, 0);
   # FIXME write field
   if (tmp:1 == teststate) goto reladdr8;
 }
@@ -1022,8 +1022,7 @@ field: eab_a is is_reg = 0 & eab_a { export eab_a; }
   teststate:1 = 1;
 #  newstate:1 = 1;
   local tmp:4;
-  local sz:1 = 1;
-  get_field(tmp, eal, sz, field);
+  get_field(tmp, eal, 1, field, 0);
   # FIXME write field
   if (tmp:1 == teststate) goto reladdr8;
 }
@@ -1031,8 +1030,7 @@ field: eab_a is is_reg = 0 & eab_a { export eab_a; }
   teststate:1 = 0;
 #  newstate:1 = 0;
   local tmp:4;
-  local sz:1 = 1;
-  get_field(tmp, eal, sz, field);
+  get_field(tmp, eal, 1, field, 0);
   # FIXME write field
   if (tmp:1 == teststate) goto reladdr8;
 }
