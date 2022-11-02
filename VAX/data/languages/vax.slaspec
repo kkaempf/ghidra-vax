@@ -143,9 +143,11 @@ macro get_field(f, pos, sz, addr) {
   local rptr:4 = &addr; # compute Rn ptr
   tmp = *[register]rptr; # get Rn:Rn+1
 <get_field_from_tmp>
-  tmp = tmp << highest_bit;
-  tmp = tmp >> lowest_bit;
-  f = tmp:4;
+  tmp = tmp >> pos20;
+  local mask:4 = -1;
+  # leave 'size' bits 1 in mask
+  mask = mask >> (32 - zext(sz));
+  f = tmp:4 & mask;
 <exit_get_field>
 }
 
@@ -980,57 +982,57 @@ field: eab_a is is_reg = 0 & eab_a { export eab_a; }
   get_field(f, eal, sz, field);
   if (f == 0) goto reladdr8;
 }
-:BBSS eal, eab_a, reladdr8 is opcode=0xe2; eal; eab_a; reladdr8 {
+:BBSS eal, field, reladdr8 is opcode=0xe2; eal; field; reladdr8 {
   teststate:1 = 1;
 #  newstate:1 = 1;
   local tmp:4;
   local sz:1 = 1;
-  get_field(tmp, eal, sz, eab_a);
+  get_field(tmp, eal, sz, field);
   # FIXME write field
   if (tmp:1 == teststate) goto reladdr8;
 }
-:BBCS eal, eab_a, reladdr8 is opcode=0xe3; eal; eab_a; reladdr8 {
+:BBCS eal, field, reladdr8 is opcode=0xe3; eal; field; reladdr8 {
   teststate:1 = 0;
 #  newstate:1 = 1;
   local tmp:4;
   local sz:1 = 1;
-  get_field(tmp, eal, sz, eab_a);
+  get_field(tmp, eal, sz, field);
   # FIXME write field
   if (tmp:1 == teststate) goto reladdr8;
 }
-:BBSC eal, eab_a, reladdr8 is opcode=0xe4; eal; eab_a; reladdr8 {
+:BBSC eal, field, reladdr8 is opcode=0xe4; eal; field; reladdr8 {
   teststate:1 = 1;
 #  newstate:1 = 0;
   local tmp:4;
   local sz:1 = 1;
-  get_field(tmp, eal, sz, eab_a);
+  get_field(tmp, eal, sz, field);
   # FIXME write field
   if (tmp:1 == teststate) goto reladdr8;
 }
-:BBCC eal, eab_a, reladdr8 is opcode=0xe5; eal; eab_a; reladdr8 {
+:BBCC eal, field, reladdr8 is opcode=0xe5; eal; field; reladdr8 {
   teststate:1 = 0;
 #  newstate:1 = 0;
   local tmp:4;
   local sz:1 = 1;
-  get_field(tmp, eal, sz, eab_a);
+  get_field(tmp, eal, sz, field);
   # FIXME write field
   if (tmp:1 == teststate) goto reladdr8;
 }
-:BBSSI eal, eab_a, reladdr8 is opcode=0xe6; eal; eab_a; reladdr8 {
+:BBSSI eal, field, reladdr8 is opcode=0xe6; eal; field; reladdr8 {
   teststate:1 = 1;
 #  newstate:1 = 1;
   local tmp:4;
   local sz:1 = 1;
-  get_field(tmp, eal, sz, eab_a);
+  get_field(tmp, eal, sz, field);
   # FIXME write field
   if (tmp:1 == teststate) goto reladdr8;
 }
-:BBCCI eal, eab_a, reladdr8 is opcode=0xe7; eal; eab_a; reladdr8 {
+:BBCCI eal, field, reladdr8 is opcode=0xe7; eal; field; reladdr8 {
   teststate:1 = 0;
 #  newstate:1 = 0;
   local tmp:4;
   local sz:1 = 1;
-  get_field(tmp, eal, sz, eab_a);
+  get_field(tmp, eal, sz, field);
   # FIXME write field
   if (tmp:1 == teststate) goto reladdr8;
 }
