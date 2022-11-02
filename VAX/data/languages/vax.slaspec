@@ -157,6 +157,27 @@ macro get_field(f, pos, size, addr, signed_flag) {
 <exit_get_field>
 }
 
+macro find_first(findpos, field, size, ffs) {
+  local state:1 = ffs;
+  local tmp2:1 = 0;
+  local mask:4 = 1;
+<find_first_loop>
+  if (tmp2 > (size:1 - 1)) goto <find_first_exit>;
+  if ((field & mask) == 0) goto <bit_is_clear>;
+  if (state == 1) goto <find_first_found>;
+  goto <find_first_next>;
+<bit_is_clear>
+  if (state == 0) goto <find_first_found>;
+<find_first_next>
+  tmp2 = tmp2 + 1;
+  mask = mask << 1;
+  goto <find_first_loop>;
+<find_first_found>
+  Z_F = 0;
+  findpos = findpos + zext(tmp2);
+<find_first_exit>
+}
+
 macro push(val) {
   SP = SP - 4;
   *:4 SP = val;
@@ -922,23 +943,28 @@ field: eab_a is is_reg = 0 & eab_a { export eab_a; }
   resflags(f);
 }
 
-# find first clear startpos.rl, size.rb, base.vb, {field.rv}, findpos.wl
-:FFC eal, eab, eab_a, mlx is opcode=0xeb; eal; eab; eab_a; mlx {
-  N_F = 0; V_F = 0; C_F = 0;
-  if (eab == 0) goto <end>;
-  # FIXME FIELD
-<end>
+# find first clear
+#  startpos.rl, size.rb, base.vb, {field.rv}, findpos.wl
+:FFC eal, eab, field, mlx is opcode=0xeb; eal; eab; field; mlx {
+  N_F = 0; V_F = 0; C_F = 0; Z_F = 1;
   mlx = eal;
+  if (eab == 0) goto <end>;
+  local f:4;
+  get_field(f, eal, eab, field, 0);
+  find_first(mlx, f, eal, 0);
+<end>
 }
-:FFS eal, eab, eab_a, mlx is opcode=0xea; eal; eab; eab_a; mlx {
-  N_F = 0; V_F = 0; C_F = 0;
-  if (eab == 0) goto <end>;
-  # FIXME FIELD
-<end>
+:FFS eal, eab, field, mlx is opcode=0xea; eal; eab; field; mlx {
+  N_F = 0; V_F = 0; C_F = 0; Z_F = 1;
   mlx = eal;
+  if (eab == 0) goto <end>;
+  local f:4;
+  get_field(f, eal, eab, field, 0);
+  find_first(mlx, f, eal, 1);
+<end>
 }
 
-:INSV eal, rlx, eab, eab_a is opcode=0xf0; eal; rlx; eab; eab_a {
+:INSV eal, rlx, eab, field is opcode=0xf0; eal; rlx; eab; field {
   if (eab == 0) goto <end>;
   # FIXME FIELD
 <end>
