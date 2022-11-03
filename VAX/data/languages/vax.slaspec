@@ -569,6 +569,7 @@ rlx: eal is eal { tmp = eal; export tmp; }
 rlx2: eal is eal { tmp = eal; export tmp; }
 rlx3: eal is eal { tmp = eal; export tmp; }
 rlx4: eal is eal { tmp = eal; export tmp; }
+rqx: eaq is eaq { tmp = eaq; export tmp; }
 
 # readable float F
 rfx: eal is eal { tmp = eal; export tmp; }
@@ -1022,20 +1023,43 @@ field: eab_a is is_reg = 0 & eab_a { export eab_a; }
 # Control Instructions
 #=========================================================================
 
+macro acb_i(limit, add, index, displ) {
+  index = index + add;
+  F_N = (index s< 0);
+  F_Z = (index == 0);
+  # F_V = {integer overflow}
+  if (((add s>= 0) && (index <= limit)) ||
+      ((add s< 0)  && (index >= limit)))
+    goto displ;
+}
+
+macro acb_f(limit, add, index, displ) {
+  index = index + add;
+  F_N = (index f< 0);
+  F_Z = (index == 0);
+  # F_V = {integer overflow}
+  if (((add f>= 0) && (index f<= limit)) ||
+      ((add f< 0)  && (index f>= limit)))
+    goto displ;
+}
+
+# add compare and branch
+#  limit.rx, add.rx, index.mx, displ.bw
 :ACBB eab, rbx, mbx, reladdr16 is opcode=0x9d; eab; rbx; mbx; reladdr16 {
-  mbx = mbx + rbx;
-  if (((rbx s>= 0) && (mbx <= eab)) || ((rbx s< 0) && (mbx >= eab))) goto reladdr16;
+  acb_i(eab, rbx, mbx, reladdr16);
 }
 :ACBW eaw, rwx, mwx, reladdr16 is opcode=0x3d; eaw; rwx; mwx; reladdr16 {
-  mwx = mwx + rwx;
-  if (((rwx s>= 0) && (mwx <= eaw)) || ((rwx s< 0) && (mwx >= eaw))) goto reladdr16;
+  acb_i(eaw, rwx, mwx, reladdr16);
 }
 :ACBL eal, rlx, mlx, reladdr16 is opcode=0xf1; eal; rlx; mlx; reladdr16 {
-  mlx = mlx + rlx;
-  if (((rlx s>= 0) && (mlx <= eal)) || ((rlx s< 0) && (mlx >= eal))) goto reladdr16;
+  acb_i(eal, rlx, mlx, reladdr16);
 }
-# FIXME :ACBF is opcode=0x4f
-# FIXME :ACBD is opcode=0x6f
+:ACBF eal, rlx, mlx, reladdr16 is opcode=0x4f; eal; rlx; mlx; reladdr16 {
+  acb_f(eal, rlx, mlx, reladdr16);
+}
+:ACBD eaq, rqx, mqx, reladdr16 is opcode=0x6f; eaq; rqx; mqx; reladdr16 {
+  acb_f(eaq, rqx, mqx, reladdr16);
+}
 
 :AOBLEQ eal, mlx, reladdr8 is opcode=0xf3; eal; mlx; reladdr8 {
   mlx = mlx + 1;
