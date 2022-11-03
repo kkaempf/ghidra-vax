@@ -890,8 +890,11 @@ field: eab_a is eab_a { export eab_a; }
 :MOVQ eaq, mqx is opcode=0x7d; eaq; mqx { mqx = eaq; V_F = 0; resflags(mqx); }
 #:MOVO FIXME
 
+# move unsigned (zero-extend) byte to word
 :MOVZBW eab, mwx is opcode=0x9b; eab; mwx { mwx = zext(eab); resflags(mwx); N_F = 0; V_F = 0; }
+#   "  byte to long
 :MOVZBL eab, mlx is opcode=0x9a; eab; mlx { mlx = zext(eab); resflags(mlx); N_F = 0; V_F = 0; }
+#   "  word to long
 :MOVZWL eaw, mlx is opcode=0x3c; eaw; mlx { mlx = zext(eaw); resflags(mlx); N_F = 0; V_F = 0; }
 
 :MULB2 eab, mbx is opcode=0x84; eab; mbx { mbx = mbx * eab; C_F = 0; resflags(mbx); } # FIXME V_F
@@ -1293,12 +1296,18 @@ macro acb_f(limit, add, index, displ) {
 #=========================================================================
 
 # FIXME unpack/pack from condition flags
+# bit clear/set PSW
 :BICPSW eaw is opcode=0xb9; eaw { PSW = PSW & ~eaw; }
 :BISPSW eaw is opcode=0xb8; eaw { PSW = PSW | eaw; }
 
+# breakpoint
 :BPT is opcode=0x03 unimpl
+
+# halt
 :HALT is opcode=0x00 { goto inst_start; }
 
+# compute index
+#  subscript.rl, low.rl, high.rl, size.rl, indexin.rl, indexout.wl
 :INDEX eal, rlx, rlx2, rlx3, rlx4, mlx is opcode=0x0a; eal; rlx; rlx2; rlx3; rlx4; mlx {
   mlx = (rlx4 + eal) * rlx3;
   if ((eal s< rlx) || (eal > rlx2)) goto <end>;
@@ -1406,6 +1415,7 @@ macro acb_f(limit, add, index, displ) {
 <no_r0>
 }
 
+# user-defined extensions
 :XFC is opcode=0xfc unimpl
 
 #=========================================================================
@@ -1643,8 +1653,84 @@ macro acb_f(limit, add, index, displ) {
 #=========================================================================
 # FIXME
 
-:CMPC3 rwx, eab_a, eab_a2 is opcode=0x29; rwx; eab_a; eab_a2 unimpl
-:CMPC5 rwx, eab_a, eab, rwx2, eab_a2 is opcode=0x2d; rwx; eab_a; eab; rwx2; eab_a2 unimpl
+# compare characters
+#  len.rw, src1addr.ab, src2addr.ab {R0-3.wl}
+:CMPC3 rwx, eab_a, eab_a2 is opcode=0x29; rwx; eab_a; eab_a2 {
+  local tmp1 = rwx; # length
+  local tmp2 = eab_a; # source 1
+  local tmp4 = eab_a2; # source 2
+  local tmpa:1 = 0; # compare regs
+  local tmpb:1 = 0;
+<while_loop>
+  if (tmp1 == 0) goto <match>;
+  tmpa = *:1 tmp2; # src 1 char
+  tmpb = *:1 tmp4; # src 2 char
+  if (tmpa != tmpb) goto <nomatch>;
+  tmp1 = tmp1 - 1;
+  tmp2 = tmp2 + 1;
+  tmp4 = tmp4 + 1;
+  goto <while_loop>;
+<nomatch>
+  Z_F = 0;
+  N_F = (tmpa s< tmpb);
+  C_F = (tmpa < tmpb);
+  goto <while_end>;
+<match>
+  Z_F = 1;
+  N_F = 0;
+  C_F = 0;
+<while_end>
+  R0 = zext(tmp1);
+  R1 = tmp2;
+  R2 = zext(tmp1);
+  R3 = tmp4;
+}
+
+#  src1len.rw, src1addr.ab, fill.rb, src2len.rw, src2addr.ab {R0-3.wl}
+:CMPC5 rwx, eab_a, eab, rwx2, eab_a2 is opcode=0x2d; rwx; eab_a; eab; rwx2; eab_a2 {
+  local tmp1 = rwx; # src1len
+  local tmp2 = eab_a; # src1addr
+  local tmp3 = rwx2; # src2len
+  local tmp4 = eab_a2; # src2addr
+  local tmpa:1 = 0; # compare regs
+  local tmpb:1 = 0;
+<while_loop>
+  if ((tmp1 == 0) && (tmp2 == 0)) goto <match>;
+  if (tmp1 == 0) goto <src1_zero>;
+  tmpa = *:1 tmp2;
+  goto <check_src2>;
+<src1_zero>
+  tmpa = eab:1; # fill
+<check_src2>
+  if (tmp3 == 0) goto <src2_zero>;
+  tmpb = *:1 tmp4;
+  goto <check>;
+<src2_zero>
+  tmpb = eab:1; # fill
+<check>
+  if (tmpa != tmpb) goto <nomatch>;
+  Z_F = 1;
+  if (tmp1 == 0) goto <no_inc_src1>;
+  tmp1 = tmp1 - 1; tmp2 = tmp2 + 1;
+<no_inc_src1>
+  if (tmp3 == 0) goto <while_loop>;
+  tmp3 = tmp3 - 1; tmp4 = tmp4 + 1;
+  goto <while_loop>;
+<nomatch>
+  Z_F = 0;
+  N_F = (tmpa s< tmpb);
+  C_F = (tmpa < tmpb);#
+  goto <while_end>;
+<match>
+  Z_F = 1;
+  N_F = 0;
+  C_F = 0;
+<while_end>
+  R0 = zext(tmp1);
+  R1 = tmp2;
+  R2 = zext(tmp3);
+  R3 = tmp4;
+}
 :LOCC eab, eaw, eab_a is opcode=0x3a; eab; eaw; eab_a unimpl
 :MATCHC rwx, eab_a, rwx2, eab_a2 is opcode=0x39; rwx; eab_a; rwx2; eab_a2 unimpl
 :MOVC3 rwx, eab_a, eab_a2 is opcode=0x28; rwx; eab_a; eab_a2 unimpl
