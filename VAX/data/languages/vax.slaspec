@@ -67,7 +67,7 @@ define register offset=0x100 size=4 [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 
 define register offset=0x500 size=4  [ loc statusreg ];
 
 define context statusreg
-  is_reg = (0,1)
+  is_reg = (0,1) noflow
 ;
 
 #--------------------------------------------------------------------------
@@ -127,8 +127,10 @@ macro get_field(f, pos, size, addr, signed_flag) {
 <size_nonzero>
   local tmp:8 = 0;
   # compute bit position (0..7)
-  local pos20:1 = pos[0,3];
+  local bitpos:1 = pos:1;
   if (statusreg != 0) goto <in_register>;
+  # compute bit position (0..7)
+  bitpos = bitpos & 0x07;
   # compute byte position
   local ptr:4 = addr + sext(pos[3,29]); # 29 bits, counting from 3
   tmp = *:8 ptr;
@@ -143,7 +145,7 @@ macro get_field(f, pos, size, addr, signed_flag) {
   local rptr:4 = &addr; # compute Rn ptr
   tmp = *[register]rptr; # get Rn:Rn+1
 <extract_from_tmp>
-  tmp = tmp >> pos20;
+  tmp = tmp >> bitpos;
   local mask:4 = -1;
   # leave 'size' bits 1 in mask
   mask = mask >> (32 - zext(sz));
@@ -155,6 +157,40 @@ macro get_field(f, pos, size, addr, signed_flag) {
   mask = -1 << zext(sz);
   f = f | mask;
 <exit_get_field>
+}
+
+macro insert_field(src, pos, size, addr) {
+  local sz:1 = size;
+  if (sz == 0) goto <exit_insert_field>;
+  local tmp:8 = 0;
+  local bitpos:1 = pos:1;
+  if (statusreg != 0) goto <in_register>;
+  # compute bit position (0..7)
+  bitpos = bitpos & 0x07;
+  # compute byte position
+  local ptr:4 = addr + sext(pos[3,29]); # 29 bits, counting from 3
+  tmp = *:8 ptr;
+  goto <insert_to_tmp>;
+<in_register>
+  # addr is a register
+  if ((pos + zext(sz)) > 32) goto <in_doublereg>;
+  # single register
+  tmp = zext(addr);
+  goto <insert_to_tmp>;
+<in_doublereg>  
+  local rptr:4 = &addr; # compute Rn ptr
+  tmp = *[register]rptr; # get Rn:Rn+1
+<insert_to_tmp>
+  local mask:4 = -1;
+  # leave 'size' bits 1 in mask
+  mask = mask >> (32 - zext(sz));
+  local bmask:4 = -1;
+  # leave 'bitpos' bits 1 in mask
+  # use bmask to 'shift 1 bits from the right'
+  bmask = bmask >> (32 - bitpos);
+  tmp = tmp & (((~mask) << bitpos) | bmask); # set field bits to zero, right bits to 1
+  tmp = tmp | (src << bitpos); # insert src
+<exit_insert_field>
 }
 
 macro find_first(findpos, field, size, ffs) {
@@ -1620,11 +1656,7 @@ field: eab_a is is_reg = 0 & eab_a { export eab_a; }
 :SVPCTX is opcode=0x07 unimpl
 
 # move to processor register
-:MTPR rlx, procreg is opcode=0xda; rlx; procreg {
-  procreg = rlx;
-}
+:MTPR rlx, procreg is opcode=0xda; rlx; procreg { procreg = rlx; }
 # move from processor register
-:MFPR procreg, mlx is opcode=0xdb; procreg; mlx {
-  mlx = procreg;
-}
+:MFPR procreg, mlx is opcode=0xdb; procreg; mlx { mlx = procreg; }
 
