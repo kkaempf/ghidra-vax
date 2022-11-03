@@ -169,6 +169,7 @@ macro insert_field(src, pos, size, addr) {
   bitpos = bitpos & 0x07;
   # compute byte position
   local ptr:4 = addr + sext(pos[3,29]); # 29 bits, counting from 3
+  local rptr:4 = 0; # register ptr
   tmp = *:8 ptr;
   goto <insert_to_tmp>;
 <in_register>
@@ -178,8 +179,8 @@ macro insert_field(src, pos, size, addr) {
   tmp = zext(addr);
   goto <insert_to_tmp>;
 <in_doublereg>  
-  local rptr:4 = &addr; # compute Rn ptr
-  tmp = *[register]rptr; # get Rn:Rn+1
+  rptr = &addr; # compute Rn ptr
+  addr = *[register]rptr; # get Rn:Rn+1
 <insert_to_tmp>
   local mask:4 = -1;
   # leave 'size' bits 1 in mask
@@ -188,8 +189,14 @@ macro insert_field(src, pos, size, addr) {
   # leave 'bitpos' bits 1 in mask
   # use bmask to 'shift 1 bits from the right'
   bmask = bmask >> (32 - bitpos);
-  tmp = tmp & (((~mask) << bitpos) | bmask); # set field bits to zero, right bits to 1
-  tmp = tmp | (src << bitpos); # insert src
+  tmp = tmp & sext(((~mask) << bitpos) | bmask); # set field bits to zero, right bits to 1
+  tmp = tmp | zext(src << bitpos); # insert src
+  if (statusreg != 0) goto <write_register>;
+  # write result back
+  *ptr = tmp;
+  goto <exit_insert_field>;
+<write_register>
+  *rptr = tmp;
 <exit_insert_field>
 }
 
@@ -896,21 +903,26 @@ field: eab_a is is_reg = 0 & eab_a { export eab_a; }
 
 :PUSHL eal is opcode=0xdd; eal { push(eal); V_F = 0; resflags(eal); }
 
+# rotate long
+#     cnt.rb, src.rl, dst.wl
 :ROTL eab, eal, mlx is opcode=0x9c; eab; eal; mlx {
-  if (eab s> 0) goto <rotate_left>;
-  if (eab s< 0) goto <rotate_right>;
+#  local shifted:4;
+#  local rot_bits:4;
+#  if (eab s> 0) goto <rotate_left>;
+#  if (eab s< 0) goto <rotate_right>;
   mlx = eal;
-  goto <end>;
-<rotate_left>
-  shifted = eal << eab;
-  rot_bits = eal >> (32-eab);
-  mlx = shifted | rot_bits;
-  goto <end>;
-<rotate_right>
-  shifted = eal >> eab;
-  rot_bits = eal << (32+eab); # eab is negative
-  mlx = shifted | rot_bits;
-<end>
+#  goto <rotate_exit>;
+#<rotate_left>
+#  shifted = eal << eab;
+#  rot_bits = eal >> (32-eab);
+#  goto <rotate_result>;
+#<rotate_right>
+#  eab = -eab;
+#  shifted = eal >> eab;
+#  rot_bits = eal << (32-eab);
+#<rotate_result>
+#  mlx = shifted | rot_bits;
+#<rotate_exit>
   V_F = 0;
   resflags(mlx);
 }
@@ -1000,10 +1012,10 @@ field: eab_a is is_reg = 0 & eab_a { export eab_a; }
 <end>
 }
 
+# insert field
+#     src.rl, pos.rl, size.rb, base.vb
 :INSV eal, rlx, eab, field is opcode=0xf0; eal; rlx; eab; field {
-  if (eab == 0) goto <end>;
-  # FIXME FIELD
-<end>
+  insert_field(eal, rlx, eab, field);
 }
 
 #=========================================================================
