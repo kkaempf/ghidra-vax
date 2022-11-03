@@ -361,7 +361,7 @@ cc: "CS"  is lownibble=15 { tmp:1 = C_F; export tmp; }
 eab: "S^#"^litval is mode67=0 & litval { export *[const]:1 litval; }
 #   4: indexed - see below
 #   5: register
-reg_a: reg is mode=5 & reg [is_reg = 1;] { export reg; }
+eab_a: reg is mode=5 & reg [is_reg = 1;] { export reg; }
 eab: reg is mode=5 & reg { tmp:1 = reg:1; export tmp; }
 #   6: register deferred
 eab_a: (reg) is mode=6 & reg { export reg; }
@@ -596,8 +596,7 @@ mdx: mqx is mqx { tmp = mqx; export tmp; }
 eab_a2: eab_a is eab_a { tmp = eab_a; export tmp; }
 eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
 
-field: reg_a is is_reg = 1 & reg_a { export reg_a; }
-field: eab_a is is_reg = 0 & eab_a { export eab_a; }
+field: eab_a is eab_a { export eab_a; }
 
 #--------------------------------------------------------------------------
 # Mnemonics
@@ -1084,52 +1083,57 @@ macro acb_f(limit, add, index, displ) {
   get_field(f, eal, 1, field, 0);
   if (f == 0) goto reladdr8;
 }
+
+# branch on bit (and modify)
+#     pos.rl, base.vb, displ.bb
 :BBSS eal, field, reladdr8 is opcode=0xe2; eal; field; reladdr8 {
   teststate:1 = 1;
-#  newstate:1 = 1;
+  newstate:1 = 1;
   local tmp:4;
-  get_field(tmp, eal, 1, field, 0);
+  get_field(tmp, eal, 1, field, 0); # get one bit, unsigned
+  insert_field(newstate, eal, 1, field);
   # FIXME write field
   if (tmp:1 == teststate) goto reladdr8;
 }
 :BBCS eal, field, reladdr8 is opcode=0xe3; eal; field; reladdr8 {
   teststate:1 = 0;
-#  newstate:1 = 1;
+  newstate:1 = 1;
   local tmp:4;
   get_field(tmp, eal, 1, field, 0);
-  # FIXME write field
+  insert_field(newstate, eal, 1, field);
   if (tmp:1 == teststate) goto reladdr8;
 }
 :BBSC eal, field, reladdr8 is opcode=0xe4; eal; field; reladdr8 {
   teststate:1 = 1;
-#  newstate:1 = 0;
+  newstate:1 = 0;
   local tmp:4;
   get_field(tmp, eal, 1, field, 0);
-  # FIXME write field
+  insert_field(newstate, eal, 1, field);
   if (tmp:1 == teststate) goto reladdr8;
 }
 :BBCC eal, field, reladdr8 is opcode=0xe5; eal; field; reladdr8 {
   teststate:1 = 0;
-#  newstate:1 = 0;
+  newstate:1 = 0;
   local tmp:4;
   get_field(tmp, eal, 1, field, 0);
-  # FIXME write field
+  insert_field(newstate, eal, 1, field);
   if (tmp:1 == teststate) goto reladdr8;
 }
+# branch on bit (interlocked)
 :BBSSI eal, field, reladdr8 is opcode=0xe6; eal; field; reladdr8 {
   teststate:1 = 1;
-#  newstate:1 = 1;
+  newstate:1 = 1;
   local tmp:4;
   get_field(tmp, eal, 1, field, 0);
-  # FIXME write field
+  insert_field(newstate, eal, 1, field);
   if (tmp:1 == teststate) goto reladdr8;
 }
 :BBCCI eal, field, reladdr8 is opcode=0xe7; eal; field; reladdr8 {
   teststate:1 = 0;
-#  newstate:1 = 0;
+  newstate:1 = 0;
   local tmp:4;
   get_field(tmp, eal, 1, field, 0);
-  # FIXME write field
+  insert_field(newstate, eal, 1, field);
   if (tmp:1 == teststate) goto reladdr8;
 }
 
@@ -1160,6 +1164,7 @@ macro acb_f(limit, add, index, displ) {
   call reladdr16;
 }
 
+# switch/case with jump table
 :CASEB eab, rbx, rbx2 is opcode=0x8f; eab; rbx; rbx2 {
   local tmp = eab - rbx; # offset into jump table (of words)
   if (tmp > rbx2) goto <not_lequ>; # unsigned compare !, also break out here if tmp is 'negative'
@@ -1218,8 +1223,10 @@ macro acb_f(limit, add, index, displ) {
   goto [eab_a];
 }
 
+# return from subroutine
 :RSB is opcode=0x05 { pop(PC); return [PC]; }
 
+# subtract one and branch CC
 :SOBGEQ mlx, reladdr8 is opcode=0xf4; mlx; reladdr8 {
   mlx = mlx - 1;
   resflags(mlx);
@@ -1237,14 +1244,43 @@ macro acb_f(limit, add, index, displ) {
   if (mlx s> 0) goto reladdr8;
 }
 
+#=========================================================================
+# Procedure-Call Instructions
+#=========================================================================
+
+# call with general argument list
+#      arglist.ab, dst.ab
 :CALLG eab_a, eab_a2 is opcode=0xfa; eab_a; eab_a2 {
   ptr:4 = eab_a2 + 2;
   # FIXME
   call [ptr];
 }
+# call with stack argument list
+#      numarg.rl, dst.ab
 :CALLS eal, eab_a is opcode=0xfb; eal; eab_a {
-  ptr:4 = eab_a + 2;
-  # FIXME
+  local tmp2:2 = *:2 eab_a;
+  push(eal);
+  local tmp1:4 = 0; #SP;
+  SP = SP & (~0x03); # longword-align SP
+  local mask:2 = 0b10000000000;
+  local rptr:4 = 0; #&R11;
+<calls_loop>
+  if ((tmp2 & mask) == 0) goto <skip_push>;
+  local r:4 = *[register]rptr;
+  push(r);
+<skip_push>
+  rptr = rptr - 4;
+  mask = mask >> 1;
+  if (mask != 0) goto <calls_loop>;
+  push(PC);
+  push(FP);
+  push(AP);
+  N_F = 0; Z_F = 0; V_F = 0; C_F = 0;
+  push((tmp1 & 0x03) | 0x04:4 | ((zext(tmp2) & 0b111111111111:4) << 4)); # FIMXE PSW[14:5]
+  push(0:4);
+  FP = SP;
+  AP = tmp1;
+  local ptr:4 = eab_a + 2;
   call [ptr];
 }
 :RET is opcode=0x04 {
