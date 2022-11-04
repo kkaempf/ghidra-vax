@@ -1735,7 +1735,7 @@ macro acb_f(limit, add, index, displ) {
 # locate character
 #    char.rb, len.rw, addr.ab
 :LOCC eab, eaw, eab_a is opcode=0x3a; eab; eaw; eab_a {
-  local tmp1 = eaw;
+  local tmp1:2 = eaw;
   local tmp2 = eab_a;
   if (tmp1 < 0) goto <while_end>;
 <while_loop>
@@ -1746,17 +1746,49 @@ macro acb_f(limit, add, index, displ) {
   tmp2 = tmp2 + 1;
   goto <while_loop>;
 <while_end>
-  if (tmp1 == 0) goto <nomatch>;
-  Z_F = 0;
-  goto <locc_end>;
-<nomatch>
-  Z_F = 1;
-<locc_end>
+  Z_F = (tmp1 != 0);
   R0 = zext(tmp1);
   R1 = tmp2;
 }
 
-:MATCHC rwx, eab_a, rwx2, eab_a2 is opcode=0x39; rwx; eab_a; rwx2; eab_a2 unimpl
+# match characters
+#   objlen.rw, objaddr.ab, srclen.rw, srcaddr.ab
+:MATCHC rwx, eab_a, rwx2, eab_a2 is opcode=0x39; rwx; eab_a; rwx2; eab_a2 {
+  local tmp1 = rwx;
+  local tmp2 = eab_a;
+  local tmp3 = rwx2;
+  local tmp4 = eab_a2;
+  local tmp5 = tmp1;
+<while_loop>
+  if (tmp1 != 0) goto <while_end>;
+  if (tmp3 < tmp1) goto <while_end>;
+  if (tmp2 != tmp4) goto <matchc_else>;
+  tmp1 = tmp1 - 1;
+  tmp2 = tmp2 + 1;
+  tmp3 = tmp3 - 1;
+  tmp4 = tmp4 + 1;
+  goto <while_loop>;
+<matchc_else>
+  tmp2 = tmp2 - zext(tmp5 - tmp1);
+  tmp3 = (tmp3 - 1) + (tmp5 - tmp1);
+  tmp4 = (tmp4 + 1) - zext(tmp5 - tmp1);
+  tmp1 = tmp5;
+  goto <while_loop>;
+<while_end>
+  if (tmp3 >= tmp1) goto <matchc_exit>;
+  tmp4 = tmp4 + zext(tmp3);
+  tmp3 = 0;
+<matchc_exit>
+  Z_F = (tmp1 == 0);
+  N_F = 0;
+  V_F = 0;
+  C_F = 0;
+  R0 = zext(tmp1);
+  R1 = tmp2;
+  R2 = zext(tmp3);
+  R3 = tmp4;
+}
+
 :MOVC3 rwx, eab_a, eab_a2 is opcode=0x28; rwx; eab_a; eab_a2 unimpl
 :MOVC5 rwx, eab_a, eab, rwx2, eab_a2 is opcode=0x2c; rwx; eab_a; eab; rwx2; eab_a2 unimpl
 :MOVTC rwx, eab_a, eab, eab_a2, rwx2, eab_a3 is opcode=0x2e; rwx; eab_a; eab; eab_a2; rwx2; eab_a3 unimpl
