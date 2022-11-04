@@ -1789,8 +1789,114 @@ macro acb_f(limit, add, index, displ) {
   R3 = tmp4;
 }
 
-:MOVC3 rwx, eab_a, eab_a2 is opcode=0x28; rwx; eab_a; eab_a2 unimpl
-:MOVC5 rwx, eab_a, eab, rwx2, eab_a2 is opcode=0x2c; rwx; eab_a; eab; rwx2; eab_a2 unimpl
+# move characters
+#  len.rw, srcaddr.ab, dstaddr.ab
+:MOVC3 rwx, eab_a, eab_a2 is opcode=0x28; rwx; eab_a; eab_a2 {
+  local tmp1 = rwx;
+  local tmp2 = eab_a;
+  local tmp3 = eab_a2;
+  if (tmp2 <= tmp3) goto <movc3_else>;
+<first_while>
+  if (tmp1 == 0) goto <first_while_done>;
+  *:1 tmp3 = *:1 tmp2;
+  tmp1 = tmp1 - 1;
+  tmp2 = tmp2 + 1;
+  tmp3 = tmp3 + 1;
+  goto <first_while>;
+<first_while_done>
+  R1 = tmp2;
+  R3 = tmp3;
+  goto <end_movc3>;
+<movc3_else>
+  local tmp4 = tmp1;
+  tmp2 = tmp2 + zext(tmp1);
+  tmp3 = tmp3 + zext(tmp1);
+<second_while>
+  if (tmp1 == 0) goto <second_while_done>;
+  tmp1 = tmp1 - 1;
+  tmp2 = tmp2 - 1;
+  tmp3 = tmp3 - 1;
+  *:1 tmp3 = *:1 tmp2;
+  goto <second_while>;
+<second_while_done>
+  R1 = tmp2 + zext(tmp4);
+  R2 = tmp3 + zext(tmp4);
+<end_movc3>
+  R0 = 0;
+  R2 = 0;
+  R4 = 0;
+  R5 = 0;
+  N_F = 0;
+  Z_F = 1;
+  V_F = 0;
+  C_F = 0;
+}
+
+#  srclen.rw, srcaddr.ab, fill.rb, dstlen.rw, dstaddr.ab
+:MOVC5 rwx, eab_a, eab, rwx2, eab_a2 is opcode=0x2c; rwx; eab_a; eab; rwx2; eab_a2 {
+  local tmp1 = rwx;
+  local tmp2 = eab_a;
+  local tmp3 = rwx2;
+  local tmp4 = eab_a2;
+  if (tmp2 <= tmp4) goto <movc5_else>;
+<first_while>
+  if (tmp1 == 0) goto <second_while>;
+  if (tmp3 == 0) goto <second_while>;
+  *:1 tmp4 = *:1 tmp2;
+  tmp1 = tmp1 - 1;
+  tmp2 = tmp2 + 1;
+  tmp3 = tmp3 - 1;
+  tmp4 = tmp4 + 1;
+  goto <first_while>;
+<second_while>
+  if (tmp3 == 0) goto <second_while_done>;
+  *:1 tmp4 = eab;
+  tmp3 = tmp3 - 1;
+  tmp4 = tmp4 + 1;
+  goto <second_while>;
+<second_while_done>
+  R1 = tmp2;
+  R3 = tmp4;
+  goto <end_movc5>;
+<movc5_else>
+  local tmp5:2;
+  if (tmp1 < tmp3) goto <tmp1_min>;
+  tmp5 = tmp3;
+  goto <tmp5_min>;
+<tmp1_min>
+  tmp5 = tmp1;
+<tmp5_min>
+  local tmp6 = tmp3;
+  tmp2 = tmp2 + zext(tmp5);
+  tmp4 = tmp4 + zext(tmp6);
+<third_while>
+  if (tmp3 <= tmp1) goto <fourth_while>;
+  tmp3 = tmp3 - 1;
+  tmp4 = tmp4 - 1;
+  *:1 tmp4 = eab;
+  goto <third_while>;
+<fourth_while>
+  if (tmp3 == 0) goto <fourth_while_done>;
+  tmp1 = tmp1 - 1;
+  tmp2 = tmp2 - 1;
+  tmp3 = tmp3 - 1;
+  tmp4 = tmp4 - 1;
+  *:1 tmp4 = *:1 tmp2;
+  goto <fourth_while>;
+<fourth_while_done>
+  R1 = tmp2 + zext(tmp5);
+  R2 = tmp4 + zext(tmp6);
+<end_movc5>
+  R0 = zext(tmp1);
+  R2 = 0;
+  R4 = 0;
+  R5 = 0;
+  N_F = (rwx s< rwx2);
+  Z_F = (rwx == rwx2);
+  V_F = 0;
+  C_F = (rwx < rwx2);
+}
+
 :MOVTC rwx, eab_a, eab, eab_a2, rwx2, eab_a3 is opcode=0x2e; rwx; eab_a; eab; eab_a2; rwx2; eab_a3 unimpl
 :MOVTUC rwx, eab_a, eab, eab_a2, rwx2, eab_a3 is opcode=0x2f; rwx; eab_a; eab; eab_a2; rwx2; eab_a3 unimpl
 :SCANC rwx, eab_a, eab_a2, rbx is opcode=0x2a; rwx; eab_a; eab_a2; rbx unimpl
