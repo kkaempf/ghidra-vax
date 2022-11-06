@@ -537,9 +537,13 @@ eaq_a: "@"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; expor
 
 # indexed
 eab: eab_a[reg] is mode=4 & reg; eab_a { ptr:4 = eab_a + reg; export *:1 ptr; }
+eab_a: eab_a[reg] is mode=4 & reg; eab_a { ptr:4 = eab_a:4 + reg; export ptr; }
 eaw: eaw_a[reg] is mode=4 & reg; eaw_a { ptr:4 = eaw_a + (2 * reg); export *:2 ptr; }
+eaw_a: eaw_a[reg] is mode=4 & reg; eaw_a { ptr:4 = eaw_a:4 + (2 * reg); export ptr; }
 eal: eal_a[reg] is mode=4 & reg; eal_a { ptr:4 = eal_a + (4 * reg); export *:4 ptr; }
+eal_a: eal_a[reg] is mode=4 & reg; eal_a { ptr:4 = eal_a:4 + (4 * reg); export ptr; }
 eaq: eaq_a[reg] is mode=4 & reg; eaq_a { ptr:4 = eaq_a + (8 * reg); export *:8 ptr; }
+eaq_a: eaq_a[reg] is mode=4 & reg; eaq_a { ptr:4 = eaq_a:4 + (8 * reg); export ptr; }
 
 
 # readable <size> <anything>
