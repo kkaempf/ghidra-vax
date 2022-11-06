@@ -29,8 +29,9 @@ define register offset=0x40 size=2 [ _ PSW ];
 # condition flags
 define register offset=0x50 size=1   [ IS_F CUR_MOD PRV_MOD IPL_F DV_F FU_F IV_F T_F N_F Z_F V_F C_F ];
 
-# processor registers
-define register offset=0x100 size=4 [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 PRx07
+# 64 processor registers
+define register offset=0x100 size=4 [
+                               KSP   ESP   SSP   USP   ISP   PRx05 PRx06 PRx07
                                P0BR  P0LR  P1BR  P1LR  SBR   SLR   CPUID PRx0f
                                PCBB  SCBB  IPL   ASTLVL SIRR SISR  PRx16 PRx17
                                ICCS  NICR  ICR   TODR  PRx1c PRx1d PRx1e PRx1f
@@ -38,30 +39,6 @@ define register offset=0x100 size=4 [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 
                                PRx28 PRx29 PRx2a PRx2b PRx2c PRx2d PRx2e PRx2f
                                PRx30 PRx31 PRx32 PRx33 PRx34 PRx35 PRx36 PRx37
                                MAPEN TBIA  TBIS  PRx3b PRx3c PME   SID   TBCHK
-                               PRx40 PRx41 PRx42 PRx43 PRx44 PRx45 PRx46 PRx47
-                               PRx48 PRx49 PRx4a PRx4b PRx4c PRx4d PRx4e PRx4f
-                               PRx50 PRx51 PRx52 PRx53 PRx54 PRx55 PRx56 PRx57
-                               PRx58 PRx59 PRx5a PRx5b PRx5c PRx5d PRx5e PRx5f
-                               PRx60 PRx61 PRx62 PRx63 PRx64 PRx65 PRx66 PRx67
-                               PRx68 PRx69 PRx6a PRx6b PRx6c PRx6d PRx6e PRx6f
-                               PRx70 PRx71 PRx72 PRx73 PRx74 PRx75 PRx76 PRx77
-                               PRx78 PRx79 PRx7a PRx7b PRx7c PRx7d PRx7e PRx7f
-                               PRx80 PRx81 PRx82 PRx83 PRx84 PRx85 PRx86 PRx87
-                               PRx88 PRx89 PRx8a PRx8b PRx8c PRx8d PRx8e PRx8f
-                               VPSR  VAER  VMAC  VTBIA VSAR  PRx95 PRx96 PRx97
-                               PRx98 PRx99 PRx9a PRx9b PRx9c PRx9d PRx9e PRx9f
-                               PRxa0 PRxa1 PRxa2 PRxa3 PRxa4 PRxa5 PRxa6 PRxa7
-                               PRxa8 PRxa9 PRxaa PRxab PRxac PRxad PRxae PRxaf
-                               PRxb0 PRxb1 PRxb2 PRxb3 PRxb4 PRxb5 PRxb6 PRxb7
-                               PRxb8 PRxb9 PRxba PRxbb PRxbc PRxbd PRxbe PRxbf
-                               PRxc0 PRxc1 PRxc2 PRxc3 PRxc4 PRxc5 PRxc6 PRxc7
-                               PRxc8 PRxc9 PRxca PRxcb PRxcc PRxcd PRxce PRxcf
-                               PRxd0 PRxd1 PRxd2 PRxd3 PRxd4 PRxd5 PRxd6 PRxd7
-                               PRxd8 PRxd9 PRxda PRxdb PRxdc PRxdd PRxde PRxdf
-                               PRxe0 PRxe1 PRxe2 PRxe3 PRxe4 PRxe5 PRxe6 PRxe7
-                               PRxe8 PRxe9 PRxea PRxeb PRxec PRxed PRxee PRxef
-                               PRxf0 PRxf1 PRxf2 PRxf3 PRxf4 PRxf5 PRxf6 PRxf7
-                               PRxf8 PRxf9 PRxfa PRxfb PRxfc PRxfd PRxfe PRxff
                                ];
 
 define register offset=0x500 size=4  [ loc statusreg ];
@@ -286,8 +263,9 @@ define token addrmode (8)
 ;
 
 # processor register
-define token preg (8)
-        procreg = (0,7)
+define token proc_reg (8)
+        preg67  = (6,7)
+        preg    = (0,5)
 ;
 
 
@@ -296,39 +274,15 @@ define token preg (8)
 
 attach variables [ reg ] [ R0 R1 R2 R3 R4 R5 R6 R7 R8 R9 R10 R11 AP FP SP PC ];
 
-attach variables [ procreg ] [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 PRx07
-                               P0BR  P0LR  P1BR  P1LR  SBR   SLR   CPUID PRx0f
-                               PCBB  SCBB  IPL   ASTLVL SIRR SISR  PRx16 PRx17
-                               ICCS  NICR  ICR   TODR  PRx1c PRx1d PRx1e PRx1f
-                               RXCS  RXDB  TXCS  TXDB  PRx24 PRx25 PRx26 PRx27
-                               PRx28 PRx29 PRx2a PRx2b PRx2c PRx2d PRx2e PRx2f
-                               PRx30 PRx31 PRx32 PRx33 PRx34 PRx35 PRx36 PRx37
-                               MAPEN TBIA  TBIS  PRx3b PRx3c PME   SID   TBCHK
-                               PRx40 PRx41 PRx42 PRx43 PRx44 PRx45 PRx46 PRx47
-                               PRx48 PRx49 PRx4a PRx4b PRx4c PRx4d PRx4e PRx4f
-                               PRx50 PRx51 PRx52 PRx53 PRx54 PRx55 PRx56 PRx57
-                               PRx58 PRx59 PRx5a PRx5b PRx5c PRx5d PRx5e PRx5f
-                               PRx60 PRx61 PRx62 PRx63 PRx64 PRx65 PRx66 PRx67
-                               PRx68 PRx69 PRx6a PRx6b PRx6c PRx6d PRx6e PRx6f
-                               PRx70 PRx71 PRx72 PRx73 PRx74 PRx75 PRx76 PRx77
-                               PRx78 PRx79 PRx7a PRx7b PRx7c PRx7d PRx7e PRx7f
-                               PRx80 PRx81 PRx82 PRx83 PRx84 PRx85 PRx86 PRx87
-                               PRx88 PRx89 PRx8a PRx8b PRx8c PRx8d PRx8e PRx8f
-                               VPSR  VAER  VMAC  VTBIA VSAR  PRx95 PRx96 PRx97
-                               PRx98 PRx99 PRx9a PRx9b PRx9c PRx9d PRx9e PRx9f
-                               PRxa0 PRxa1 PRxa2 PRxa3 PRxa4 PRxa5 PRxa6 PRxa7
-                               PRxa8 PRxa9 PRxaa PRxab PRxac PRxad PRxae PRxaf
-                               PRxb0 PRxb1 PRxb2 PRxb3 PRxb4 PRxb5 PRxb6 PRxb7
-                               PRxb8 PRxb9 PRxba PRxbb PRxbc PRxbd PRxbe PRxbf
-                               PRxc0 PRxc1 PRxc2 PRxc3 PRxc4 PRxc5 PRxc6 PRxc7
-                               PRxc8 PRxc9 PRxca PRxcb PRxcc PRxcd PRxce PRxcf
-                               PRxd0 PRxd1 PRxd2 PRxd3 PRxd4 PRxd5 PRxd6 PRxd7
-                               PRxd8 PRxd9 PRxda PRxdb PRxdc PRxdd PRxde PRxdf
-                               PRxe0 PRxe1 PRxe2 PRxe3 PRxe4 PRxe5 PRxe6 PRxe7
-                               PRxe8 PRxe9 PRxea PRxeb PRxec PRxed PRxee PRxef
-                               PRxf0 PRxf1 PRxf2 PRxf3 PRxf4 PRxf5 PRxf6 PRxf7
-                               PRxf8 PRxf9 PRxfa PRxfb PRxfc PRxfd PRxfe PRxff
-                               ];
+attach variables [ preg ] [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 PRx07
+                            P0BR  P0LR  P1BR  P1LR  SBR   SLR   CPUID PRx0f
+                            PCBB  SCBB  IPL   ASTLVL SIRR SISR  PRx16 PRx17
+                            ICCS  NICR  ICR   TODR  PRx1c PRx1d PRx1e PRx1f
+                            RXCS  RXDB  TXCS  TXDB  PRx24 PRx25 PRx26 PRx27
+                            PRx28 PRx29 PRx2a PRx2b PRx2c PRx2d PRx2e PRx2f
+                            PRx30 PRx31 PRx32 PRx33 PRx34 PRx35 PRx36 PRx37
+                            MAPEN TBIA  TBIS  PRx3b PRx3c PME   SID   TBCHK
+                          ];
 
 
 #--------------------------------------------------------------------------
@@ -1737,9 +1691,10 @@ macro acb_f(limit, add, index, displ) {
 :LOCC eab, eaw, eab_a is opcode=0x3a; eab; eaw; eab_a {
   local tmp1:2 = eaw;
   local tmp2 = eab_a;
-  if (tmp1 < 0) goto <while_end>;
 <while_loop>
-  if (tmp1 == 0) goto <while_end>;
+  if (tmp1 > 0) goto <while_cont>;
+  goto <while_end>;
+<while_cont>
   local char = *:1 tmp2;
   if (char == eab) goto <while_end>;
   tmp1 = tmp1 - 1;
@@ -1760,7 +1715,7 @@ macro acb_f(limit, add, index, displ) {
   local tmp4 = eab_a2;
   local tmp5 = tmp1;
 <while_loop>
-  if (tmp1 != 0) goto <while_end>;
+  if (tmp1 == 0) goto <while_end>;
   if (tmp3 < tmp1) goto <while_end>;
   if (tmp2 != tmp4) goto <matchc_else>;
   tmp1 = tmp1 - 1;
@@ -1975,8 +1930,10 @@ macro acb_f(limit, add, index, displ) {
 :LDPCTX is opcode=0x06 unimpl
 :SVPCTX is opcode=0x07 unimpl
 
+procreg: preg is preg67 = 0 & preg { tmp:4 = preg; export tmp; }
+procreg: eal is eal { export eal; }
+
 # move to processor register
 :MTPR rlx, procreg is opcode=0xda; rlx; procreg { procreg = rlx; }
 # move from processor register
 :MFPR procreg, mlx is opcode=0xdb; procreg; mlx { mlx = procreg; }
-
