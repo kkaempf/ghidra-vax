@@ -650,37 +650,49 @@ field: eab_a is eab_a { export eab_a; }
   C_F = 0;
 }
 
+# bit clear
+#      mask.rb, dst.mb
 :BICB2 eab, mbx is opcode=0x8a; eab; mbx { tmp:1 = mbx & ~(eab); mbx = tmp; resflags(tmp); V_F = 0; }
+#      mask.rb, src.rb, dst.mb
 :BICB3 eab, rbx, mbx is opcode=0x8b; eab; rbx; mbx { tmp:1 = rbx & ~(eab); mbx = tmp; resflags(tmp); V_F = 0; }
 :BICW2 eaw, mwx is opcode=0xaa; eaw; mwx { tmp:2 = mwx & ~(eaw); mwx = tmp; resflags(tmp); V_F = 0; }
 :BICW3 eaw, rwx, mwx is opcode=0xab; eaw; rwx; mwx { tmp:2 = rwx & ~(eaw); mwx = tmp; resflags(tmp); V_F = 0; }
 :BICL2 eal, mlx is opcode=0xca; eal; mlx { tmp:4 = mlx & ~(eal); mlx = tmp; resflags(tmp); V_F = 0; }
 :BICL3 eal, rlx, mlx is opcode=0xcb; eal; rlx; mlx { tmp:4 = rlx & ~(eal); mlx = tmp; resflags(tmp); V_F = 0; }
 
+# bit set
+#      mask.rb, dst.mb
 :BISB2 eab, mbx is opcode=0x88; eab; mbx { tmp:1 = mbx | eab; mbx = tmp; resflags(tmp); V_F = 0; }
+#      mask.rb, src.rb, dst.mb
 :BISB3 eab, rbx, mbx is opcode=0x89; eab; rbx; mbx { tmp:1 = rbx | eab; mbx = tmp; resflags(tmp); V_F = 0; }
 :BISW2 eaw, mwx is opcode=0xa8; eaw; mwx { tmp:2 = mwx | eaw; mwx = tmp; resflags(tmp); V_F = 0; }
 :BISW3 eaw, rwx, mwx is opcode=0xa9; eaw; rwx; mwx { tmp:2 = rwx | eaw; mwx = tmp; resflags(tmp); V_F = 0; }
 :BISL2 eal, mlx is opcode=0xc8; eal; mlx { tmp:4 = mlx | eal; mlx = tmp; resflags(tmp); V_F = 0; }
 :BISL3 eal, rlx, mlx is opcode=0xc9; eal; rlx; mlx { tmp:4 = rlx | eal; mlx = tmp; resflags(tmp); V_F = 0; }
 
-:BIZB2 eab, rbx is opcode=0x93; eab; rbx { tmp:1 = rbx & eab; resflags(tmp); V_F = 0; }
+# bit test
+#      mask.rb, src.rb
+:BITB2 eab, rbx is opcode=0x93; eab; rbx { tmp:1 = rbx & eab; resflags(tmp); V_F = 0; }
 :BITW2 eaw, rwx is opcode=0xb3; eaw; rwx { tmp:2 = rwx & eaw; resflags(tmp); V_F = 0; }
 :BITL2 eal, rlx is opcode=0xd3; eal; rlx { tmp:4 = rlx & eal; resflags(tmp); V_F = 0; }
 
+# clear
 :CLRB eab is opcode=0x94; eab { eab = 0; N_F = 0; Z_F = 1; V_F = 1; }
 :CLRW eaw is opcode=0xb4; eaw { eaw = 0; N_F = 0; Z_F = 1; V_F = 1; }
 :CLRL eal is opcode=0xd4; eal { eal = 0; N_F = 0; Z_F = 1; V_F = 1; }
 :CLRQ eaq is opcode=0x7c; eaq { eaq = 0; N_F = 0; Z_F = 1; V_F = 1; }
 #:CLRO eao is opcodew=0x7CFD
 
+# compare
 :CMPB eab, rbx is opcode=0x91; eab; rbx { cmpflags(eab, rbx); }
 :CMPW eaw, rwx is opcode=0xb1; eaw; rwx { cmpflags(eaw, rwx); }
 :CMPL eal, rlx is opcode=0xD1; eal; rlx { cmpflags(eal, rlx); }
 
+# convert
 :CVTBW eab, mwx is opcode=0x99; eab; mwx { tmp:2 = sext(eab); mwx = tmp; resflags(tmp); C_F = 0; }
 :CVTBL eab, mlx is opcode=0x98; eab; mlx { tmp:4 = sext(eab); mlx = tmp; resflags(tmp); C_F = 0; }
 :CVTWL eaw, mlx is opcode=0x32; eaw; mlx { tmp:4 = sext(eaw); mlx = tmp; resflags(tmp); C_F = 0; }
+# convert long to byte
 :CVTWB eaw, mbx is opcode=0x33; eaw; mbx {
   tmp = eaw:1;
   remaining:2 = (eaw & 0xff00);
@@ -695,6 +707,7 @@ field: eab_a is eab_a { export eab_a; }
   resflags(tmp);
   C_F = 0;
 }
+# convert long to byte
 :CVTLB eal, mbx is opcode=0xf6; eal; mbx {
   tmp = eal:1;
   remaining:4 = (eal & 0xffffff00);
@@ -709,6 +722,7 @@ field: eab_a is eab_a { export eab_a; }
   resflags(tmp);
   C_F = 0;
 }
+# convert long to word
 :CVTLW eal, mwx is opcode=0xf7; eal; mwx {
   tmp = eal:2;
   remaining:4 = (eal & 0xffff0000);
@@ -724,6 +738,7 @@ field: eab_a is eab_a { export eab_a; }
   C_F = 0;
 }
 
+# decrement
 :DECB mbx is opcode=0x97; mbx {
   if (mbx == 0x80) goto <underflow>;
   if (mbx == 0) goto <negative>;
@@ -776,6 +791,7 @@ field: eab_a is eab_a { export eab_a; }
   resflags(mlx);
 }
 
+# divide
 :DIVB2 eab, mbx is opcode=0x86; eab; mbx { mbx = mbx / eab; C_F = 0; resflags(mbx); } # FIXME V_F
 :DIVB3 eab, rbx, mbx is opcode=0x87; eab; rbx; mbx { mbx = rbx / eab; C_F = 0; resflags(mbx); } # FIXME V_F
 :DIVW2 eaw, mwx is opcode=0xa6; eaw; mwx { mwx = mwx / eaw; C_F = 0; resflags(mwx); } # FIXME V_F
@@ -786,6 +802,7 @@ field: eab_a is eab_a { export eab_a; }
 :EDIV eal, eaq, mlx, mlx2 is opcode=0x7b; eal; eaq; mlx; mlx2 { divr:8 = sext(eal); quo = eaq / divr; mlx = quo:4; rem = eaq % divr; mlx2 = rem:4; C_F = 0; resflags(mlx); } # FIXME V_F
 :EMUL eal, rlx, rlx2, mqx is opcode=0x7a; eal; rlx; rlx2; mqx { mqx = sext(rlx * eal) + sext(rlx2); V_F = 0; C_F = 0; resflags(mqx); }
 
+# increment
 :INCB mbx is opcode=0x96; mbx {
   if (mbx == 0x7f) goto <overflow>;
   if (mbx == 0xff) goto <positive>;
