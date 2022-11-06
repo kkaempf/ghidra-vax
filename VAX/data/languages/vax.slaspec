@@ -17,7 +17,7 @@ define space register type=register_space size=4;
 
 #--------------------------------------------------------------------------
 # Registers
-                                     #0  4  8  c 10 14 18 1c 20 24  28  2c 30 34 38 3c 
+                                     #0  4  8  c 10 14 18 1c 20 24  28  2c 30 34 38 3c
 define register offset=0x00 size=4 [ R0 R1 R2 R3 R4 R5 R6 R7 R8 R9 R10 R11 AP FP SP PC ];
 
 # processor status longword
@@ -39,6 +39,30 @@ define register offset=0x100 size=4 [
                                PRx28 PRx29 PRx2a PRx2b PRx2c PRx2d PRx2e PRx2f
                                PRx30 PRx31 PRx32 PRx33 PRx34 PRx35 PRx36 PRx37
                                MAPEN TBIA  TBIS  PRx3b PRx3c PME   SID   TBCHK
+                               PRx40 PRx41 PRx42 PRx43 PRx44 PRx45 PRx46 PRx47
+                               PRx48 PRx49 PRx4a PRx4b PRx4c PRx4d PRx4e PRx4f
+                               PRx50 PRx51 PRx52 PRx53 PRx54 PRx55 PRx56 PRx57
+                               PRx58 PRx59 PRx5a PRx5b PRx5c PRx5d PRx5e PRx5f
+                               PRx60 PRx61 PRx62 PRx63 PRx64 PRx65 PRx66 PRx67
+                               PRx68 PRx69 PRx6a PRx6b PRx6c PRx6d PRx6e PRx6f
+                               PRx70 PRx71 PRx72 PRx73 PRx74 PRx75 PRx76 PRx77
+                               PRx78 PRx79 PRx7a PRx7b PRx7c PRx7d PRx7e PRx7f
+                               PRx80 PRx81 PRx82 PRx83 PRx84 PRx85 PRx86 PRx87
+                               PRx88 PRx89 PRx8a PRx8b PRx8c PRx8d PRx8e PRx8f
+                               PRx90 PRx91 PRx92 PRx93 PRx94 PRx95 PRx96 PRx97
+                               PRx98 PRx99 PRx9a PRx9b PRx9c PRx9d PRx9e PRx9f
+                               PRxa0 PRxa1 PRxa2 PRxa3 PRxa4 PRxa5 PRxa6 PRxa7
+                               PRxa8 PRxa9 PRxaa PRxab PRxac PRxad PRxae PRxaf
+                               PRxb0 PRxb1 PRxb2 PRxb3 PRxb4 PRxb5 PRxb6 PRxb7
+                               PRxb8 PRxb9 PRxba PRxbb PRxbc PRxbd PRxbe PRxbf
+                               PRxc0 PRxc1 PRxc2 PRxc3 PRxc4 PRxc5 PRxc6 PRxc7
+                               PRxc8 PRxc9 PRxca PRxcb PRxcc PRxcd PRxce PRxcf
+                               PRxd0 PRxd1 PRxd2 PRxd3 PRxd4 PRxd5 PRxd6 PRxd7
+                               PRxd8 PRxd9 PRxda PRxdb PRxdc PRxdd PRxde PRxdf
+                               PRxe0 PRxe1 PRxe2 PRxe3 PRxe4 PRxe5 PRxe6 PRxe7
+                               PRxe8 PRxe9 PRxea PRxeb PRxec PRxed PRxee PRxef
+                               PRxf0 PRxf1 PRxf2 PRxf3 PRxf4 PRxf5 PRxf6 PRxf7
+                               PRxf8 PRxf9 PRxfa PRxfb PRxfc PRxfd PRxfe PRxff
                                ];
 
 define register offset=0x500 size=4  [ loc statusreg ];
@@ -118,7 +142,7 @@ macro get_field(f, pos, size, addr, signed_flag) {
   # single register
   tmp = zext(addr);
   goto <extract_from_tmp>;
-<in_doublereg>  
+<in_doublereg>
   local rptr:4 = &addr; # compute Rn ptr
   tmp = *[register]rptr; # get Rn:Rn+1
 <extract_from_tmp>
@@ -155,7 +179,7 @@ macro insert_field(src, pos, size, addr) {
   # single register
   tmp = zext(addr);
   goto <insert_to_tmp>;
-<in_doublereg>  
+<in_doublereg>
   rptr = &addr; # compute Rn ptr
   addr = *[register]rptr; # get Rn:Rn+1
 <insert_to_tmp>
@@ -328,7 +352,7 @@ eab_a: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 1; export ptr; }
 eab: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 1; export *:1 ptr; }
 #   8: immediate mode
 # eab_a doesn't make sense
-eab: "I^#"^simm8 is mode=8 & reg=15; simm8 { export simm8; } 
+eab: "I^#"^simm8 is mode=8 & reg=15; simm8 { export simm8; }
 #   9: auto increment deferred
 eab_a: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 4; export tmp; }
 eab: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 4; export *:1 tmp; }
@@ -378,7 +402,7 @@ eaw: reg is mode=5 & reg { tmp:2 = reg:2; export tmp; }
 eaw: (reg) is mode=6 & reg { export *:2 reg; }
 eaw: -(reg) is mode=7 & reg { reg = reg - 2; export *:2 reg; }
 eaw: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 2; export *:2 ptr; }
-eaw: "I^#"^simm16 is mode=8 & reg=15; simm16 { export simm16; } 
+eaw: "I^#"^simm16 is mode=8 & reg=15; simm16 { export simm16; }
 eaw: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 4; export *:2 tmp; }
 eaw: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export *:2 tmp; }
 eaw: "B^"^simm8(reg) is mode=10 & reg; simm8 { ptr = reg + simm8; export *:2 ptr; }
@@ -399,7 +423,7 @@ eaw_a: reg is mode=5 & reg { export reg; }
 eaw_a: (reg) is mode=6 & reg { export reg; }
 eaw_a: -(reg) is mode=7 & reg { reg = reg - 2; export reg; }
 eaw_a: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 2; export ptr; }
-# eaw_a: "I^#"^simm16 is mode=8 & reg=15; simm16 { ptr:4 = inst_next - 2; export [ram]ptr; } 
+# eaw_a: "I^#"^simm16 is mode=8 & reg=15; simm16 { ptr:4 = inst_next - 2; export [ram]ptr; }
 eaw_a: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 4; export tmp; }
 eaw_a: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export tmp; }
 eaw_a: "B^"^simm8(reg) is mode=10 & reg; simm8 { ptr = reg + simm8; export ptr; }
@@ -421,7 +445,7 @@ eal: reg is mode=5 & reg { export reg; }
 eal: (reg) is mode=6 & reg { export *reg; }
 eal: -(reg) is mode=7 & reg { reg = reg - 4; export *reg; }
 eal: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 4; export *ptr; }
-eal: "I^#"^simm32 is mode=8 & reg=15; simm32 { export simm32; } 
+eal: "I^#"^simm32 is mode=8 & reg=15; simm32 { export simm32; }
 eal: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 4; export *:4 tmp; }
 eal: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export *:4 tmp; }
 eal: "B^"^simm8(reg) is mode=10 & reg; simm8 { ptr = reg + simm8; export *:4 ptr; }
@@ -442,7 +466,7 @@ eal_a: reg is mode=5 & reg { export reg; }
 eal_a: (reg) is mode=6 & reg { export reg; }
 eal_a: -(reg) is mode=7 & reg { reg = reg - 4; export reg; }
 eal_a: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 4; export ptr; }
-# eal_a: "I^#"^simm32 is mode=8 & reg=15; simm32 { ptr:4 = inst_next - 4; export [ram]ptr; } 
+# eal_a: "I^#"^simm32 is mode=8 & reg=15; simm32 { ptr:4 = inst_next - 4; export [ram]ptr; }
 eal_a: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 4; export tmp; }
 eal_a: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export tmp; }
 eal_a: "B^"^simm8(reg) is mode=10 & reg; simm8 { ptr = reg + simm8; export ptr; }
@@ -471,7 +495,7 @@ eaq: reg is mode=5 & reg {
 eaq: (reg) is mode=6 & reg { export *:8 reg; }
 eaq: -(reg) is mode=7 & reg { reg = reg - 8; export *:8 reg; }
 eaq: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 8; export *:8 ptr; }
-eaq: "I^#"^simm64 is mode=8 & reg=15; simm64 { export simm64; } 
+eaq: "I^#"^simm64 is mode=8 & reg=15; simm64 { export simm64; }
 eaq: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 8; export *:8 tmp; }
 eaq: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export *:8 tmp; }
 eaq: "B^"^simm8(reg) is mode=10 & reg; simm8 { ptr = reg + simm8; export *:8 ptr; }
@@ -491,7 +515,7 @@ eaq: "@L^"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; expor
 eaq_a: (reg) is mode=6 & reg { export reg; }
 eaq_a: -(reg) is mode=7 & reg { reg = reg - 8; export reg; }
 eaq_a: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 8; export ptr; }
-# eaq_a: "I^#"^simm64 is mode=8 & reg=15; simm64 { export simm64; } 
+# eaq_a: "I^#"^simm64 is mode=8 & reg=15; simm64 { export simm64; }
 eaq_a: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 8; export tmp; }
 eaq_a: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export tmp; }
 eaq_a: "B^"^simm8(reg) is mode=10 & reg; simm8 { ptr = reg + simm8; export ptr; }
@@ -1930,10 +1954,15 @@ macro acb_f(limit, add, index, displ) {
 :LDPCTX is opcode=0x06 unimpl
 :SVPCTX is opcode=0x07 unimpl
 
-procreg: preg is preg67 = 0 & preg { tmp:4 = preg; export tmp; }
-procreg: eal is eal { export eal; }
+procreg: preg is preg67 = 0 & preg { local tmp:4 = &preg; export tmp; }
+procreg: eal is eal { local proff:4 = &KSP + eal; export proff; }
 
 # move to processor register
-:MTPR rlx, procreg is opcode=0xda; rlx; procreg { procreg = rlx; }
+:MTPR rlx, procreg is opcode=0xda; rlx; procreg {
+  *[register]procreg = rlx;
+}
+
 # move from processor register
-:MFPR procreg, mlx is opcode=0xdb; procreg; mlx { mlx = procreg; }
+:MFPR procreg, mlx is opcode=0xdb; procreg; mlx {
+  mlx = *[register]procreg;
+}
