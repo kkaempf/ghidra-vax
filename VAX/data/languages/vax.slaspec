@@ -316,8 +316,8 @@ reladdr8: loc is simm8  [ loc = inst_start + operand_offset + 1 + simm8; ] { exp
 reladdr16: loc is simm16  [ loc = inst_start + operand_offset + 2 + simm16; ] { export *[ram]:4 loc; }
 reladdr32: loc is simm32  [ loc = inst_start + operand_offset + 4 + simm32; ] { export *[ram]:4 loc; }
 
-offset8: loc is simm8 [ loc = 0 + simm8; ] { export *[const]:4 loc; }
-offset16: loc is simm16 [ loc = 0 + simm16; ] { export *[const]:4 loc; }
+offset8: loc is simm8 [ loc = 0 + simm8; ] { export *[const]:1 loc; }
+offset16: loc is simm16 [ loc = 0 + simm16; ] { export *[const]:2 loc; }
 offset32: loc is simm32 [ loc = 0 + simm32; ] { export *[const]:4 loc; }
 
 # condition codes (for branch)
@@ -364,26 +364,26 @@ eab: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 4; export *:1 tmp; }
 eab_a: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export tmp; }
 eab: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export *:1 tmp; }
 #   10: byte displacement
-eab_a: "B^"^offset8(reg) is mode=10 & reg; offset8 { ptr = reg + offset8; export ptr; }
-eab: "B^"^offset8(reg) is mode=10 & reg; offset8 { ptr = reg + offset8; export *:1 ptr; }
+eab_a: "B^"^offset8(reg) is mode=10 & reg; offset8 { ptr = reg + sext(offset8); export ptr; }
+eab: "B^"^offset8(reg) is mode=10 & reg; offset8 { ptr = reg + sext(offset8); export *:1 ptr; }
 #   10: byte relative
 eab_a: reladdr8 is mode=10 & reg=15; reladdr8 { tmp:4 = reladdr8; export tmp; }
 eab: reladdr8 is mode=10 & reg=15; reladdr8 { export *:1 reladdr8; }
 #   11: byte displacement deferred
-eab_a: "@B^"^offset8(reg) is mode=11 & reg; offset8 { oa = reg + offset8; ptr = *:4 oa; export ptr; }
-eab: "@B^"^offset8(reg) is mode=11 & reg; offset8 { oa = reg + offset8; ptr = *:4 oa; export *:1 ptr; }
+eab_a: "@B^"^offset8(reg) is mode=11 & reg; offset8 { oa = reg + sext(offset8); ptr = *:4 oa; export ptr; }
+eab: "@B^"^offset8(reg) is mode=11 & reg; offset8 { oa = reg + sext(offset8); ptr = *:4 oa; export *:1 ptr; }
 #   11: byte relative deferred
 eab_a: "@"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export ptr; }
 eab: "@"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export *:1 ptr; }
 #   12: word displacement
-eab_a: "W^"^offset16(reg) is mode=12 & reg; offset16 { ptr = reg + offset16; export ptr; }
-eab: "W^"^offset16(reg) is mode=12 & reg; offset16 { ptr = reg + offset16; export *:1 ptr; }
+eab_a: "W^"^offset16(reg) is mode=12 & reg; offset16 { ptr = reg + sext(offset16); export ptr; }
+eab: "W^"^offset16(reg) is mode=12 & reg; offset16 { ptr = reg + sext(offset16); export *:1 ptr; }
 #   12: word relative
 eab_a: reladdr16 is mode=12 & reg=15; reladdr16 { tmp = reladdr16; export tmp; }
 eab: reladdr16 is mode=12 & reg=15; reladdr16 { export *:1 reladdr16; }
 #   13: word displacement deferred
-eab_a: "@W^"^offset16(reg) is mode=13 & reg; offset16 { oa = reg + offset16; ptr = *:4 oa; export ptr; }
-eab: "@W^"^offset16(reg) is mode=13 & reg; offset16 { oa = reg + offset16; ptr = *:4 oa; export *:1 ptr; }
+eab_a: "@W^"^offset16(reg) is mode=13 & reg; offset16 { oa = reg + sext(offset16); ptr = *:4 oa; export ptr; }
+eab: "@W^"^offset16(reg) is mode=13 & reg; offset16 { oa = reg + sext(offset16); ptr = *:4 oa; export *:1 ptr; }
 #   13: word relative deferred
 eab_a: "@"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export ptr; }
 eab: "@"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export *:1 ptr; }
@@ -409,13 +409,13 @@ eaw: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 2; export *:2 ptr; }
 eaw: "I^#"^simm16 is mode=8 & reg=15; simm16 { export simm16; }
 eaw: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 4; export *:2 tmp; }
 eaw: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export *:2 tmp; }
-eaw: "B^"offset8(reg) is mode=10 & reg; offset8 { ptr = reg + offset8; export *:2 ptr; }
+eaw: "B^"offset8(reg) is mode=10 & reg; offset8 { ptr = reg + sext(offset8); export *:2 ptr; }
 eaw: reladdr8 is mode=10 & reg=15; reladdr8 { export *:2 reladdr8; }
-eaw: "@B^"^offset8(reg) is mode=11 & reg; offset8 { oa = reg + offset8; ptr = *:4 oa; export *:2 ptr; }
+eaw: "@B^"^offset8(reg) is mode=11 & reg; offset8 { oa = reg + sext(offset8); ptr = *:4 oa; export *:2 ptr; }
 eaw: "@"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export *:2 ptr; }
-eaw: "W^"^offset16(reg) is mode=12 & reg; offset16 { ptr = reg + offset16; export *:2 ptr; }
+eaw: "W^"^offset16(reg) is mode=12 & reg; offset16 { ptr = reg + sext(offset16); export *:2 ptr; }
 eaw: reladdr16 is mode=12 & reg=15; reladdr16 { export *:2 reladdr16; }
-eaw: "@W^"^offset16(reg) is mode=13 & reg; offset16 { oa = reg + offset16; ptr = *:4 oa; export *:2 ptr; }
+eaw: "@W^"^offset16(reg) is mode=13 & reg; offset16 { oa = reg + sext(offset16); ptr = *:4 oa; export *:2 ptr; }
 eaw: "@"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export *:2 ptr; }
 eaw: "L^"^offset32(reg) is mode=14 & reg; offset32 { ptr = reg + offset32; export *:2 ptr; }
 eaw: reladdr32 is mode=14 & reg=15; reladdr32 { export *:2 reladdr32; }
@@ -430,13 +430,13 @@ eaw_a: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 2; export ptr; }
 # eaw_a: "I^#"^simm16 is mode=8 & reg=15; simm16 { ptr:4 = inst_next - 2; export [ram]ptr; }
 eaw_a: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 4; export tmp; }
 eaw_a: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export tmp; }
-eaw_a: "B^"^offset8(reg) is mode=10 & reg; offset8 { ptr = reg + offset8; export ptr; }
+eaw_a: "B^"^offset8(reg) is mode=10 & reg; offset8 { ptr = reg + sext(offset8); export ptr; }
 eaw_a: reladdr8 is mode=10 & reg=15; reladdr8 { export reladdr8; }
-eaw_a: "@B^"^offset8(reg) is mode=11 & reg; offset8 { oa = reg + offset8; ptr = *:4 oa; export ptr; }
+eaw_a: "@B^"^offset8(reg) is mode=11 & reg; offset8 { oa = reg + sext(offset8); ptr = *:4 oa; export ptr; }
 eaw_a: "@"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export ptr; }
-eaw_a: "W^"^offset16(reg) is mode=12 & reg; offset16 { ptr = reg + offset16; export ptr; }
+eaw_a: "W^"^offset16(reg) is mode=12 & reg; offset16 { ptr = reg + sext(offset16); export ptr; }
 eaw_a: reladdr16 is mode=12 & reg=15; reladdr16 { export reladdr16; }
-eaw_a: "@W^"^offset16(reg) is mode=13 & reg; offset16 { oa = reg + offset16; ptr = *:4 oa; export ptr; }
+eaw_a: "@W^"^offset16(reg) is mode=13 & reg; offset16 { oa = reg + sext(offset16); ptr = *:4 oa; export ptr; }
 eaw_a: "@"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export ptr; }
 eaw_a: "L^"^offset32(reg) is mode=14 & reg; offset32 { ptr = reg + offset32; export ptr; }
 eaw_a: reladdr32 is mode=14 & reg=15; reladdr32 { export reladdr32; }
@@ -452,13 +452,13 @@ eal: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 4; export *ptr; }
 eal: "I^#"^simm32 is mode=8 & reg=15; simm32 { export simm32; }
 eal: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 4; export *:4 tmp; }
 eal: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export *:4 tmp; }
-eal: "B^"^offset8(reg) is mode=10 & reg; offset8 { ptr = reg + offset8; export *:4 ptr; }
+eal: "B^"^offset8(reg) is mode=10 & reg; offset8 { ptr = reg + sext(offset8); export *:4 ptr; }
 eal: reladdr8 is mode=10 & reg=15; reladdr8 { export *:4 reladdr8; }
-eal: "@B^"^offset8(reg) is mode=11 & reg; offset8 { oa = reg + offset8; ptr = *:4 oa; export *:4 ptr; }
+eal: "@B^"^offset8(reg) is mode=11 & reg; offset8 { oa = reg + sext(offset8); ptr = *:4 oa; export *:4 ptr; }
 eal: "@"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export *:4 ptr; }
-eal: "W^"^offset16(reg) is mode=12 & reg; offset16 { ptr = reg + offset16; export *:4 ptr; }
+eal: "W^"^offset16(reg) is mode=12 & reg; offset16 { ptr = reg + sext(offset16); export *:4 ptr; }
 eal: reladdr16 is mode=12 & reg=15; reladdr16 { export *:4 reladdr16; }
-eal: "@W^"^offset16(reg) is mode=13 & reg; offset16 { oa = reg + offset16; ptr = *:4 oa; export *:4 ptr; }
+eal: "@W^"^offset16(reg) is mode=13 & reg; offset16 { oa = reg + sext(offset16); ptr = *:4 oa; export *:4 ptr; }
 eal: "@"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export *:4 ptr; }
 eal: "L^"^offset32(reg) is mode=14 & reg; offset32 { ptr = reg + offset32; export *:4 ptr; }
 eal: reladdr32 is mode=14 & reg=15; reladdr32 { export *:4 reladdr32; }
@@ -473,13 +473,13 @@ eal_a: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 4; export ptr; }
 # eal_a: "I^#"^simm32 is mode=8 & reg=15; simm32 { ptr:4 = inst_next - 4; export [ram]ptr; }
 eal_a: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 4; export tmp; }
 eal_a: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export tmp; }
-eal_a: "B^"^offset8(reg) is mode=10 & reg; offset8 { ptr = reg + offset8; export ptr; }
+eal_a: "B^"^offset8(reg) is mode=10 & reg; offset8 { ptr = reg + sext(offset8); export ptr; }
 eal_a: reladdr8 is mode=10 & reg=15; reladdr8 { export reladdr8; }
-eal_a: "@B^"^offset8(reg) is mode=11 & reg; offset8 { oa = reg + offset8; ptr = *:4 oa; export ptr; }
+eal_a: "@B^"^offset8(reg) is mode=11 & reg; offset8 { oa = reg + sext(offset8); ptr = *:4 oa; export ptr; }
 eal_a: "@"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export ptr; }
-eal_a: "W^"^offset16(reg) is mode=12 & reg; offset16 { ptr = reg + offset16; export ptr; }
+eal_a: "W^"^offset16(reg) is mode=12 & reg; offset16 { ptr = reg + sext(offset16); export ptr; }
 eal_a: reladdr16 is mode=12 & reg=15; reladdr16 { export reladdr16; }
-eal_a: "@W^"^offset16(reg) is mode=13 & reg; offset16 { oa = reg + offset16; ptr = *:4 oa; export ptr; }
+eal_a: "@W^"^offset16(reg) is mode=13 & reg; offset16 { oa = reg + sext(offset16); ptr = *:4 oa; export ptr; }
 eal_a: "@"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export ptr; }
 eal_a: "L^"^offset32(reg) is mode=14 & reg; offset32 { ptr = reg + offset32; export ptr; }
 eal_a: reladdr32 is mode=14 & reg=15; reladdr32 { export reladdr32; }
@@ -502,13 +502,13 @@ eaq: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 8; export *:8 ptr; }
 eaq: "I^#"^simm64 is mode=8 & reg=15; simm64 { export simm64; }
 eaq: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 8; export *:8 tmp; }
 eaq: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export *:8 tmp; }
-eaq: "B^"^offset8(reg) is mode=10 & reg; offset8 { ptr = reg + offset8; export *:8 ptr; }
+eaq: "B^"^offset8(reg) is mode=10 & reg; offset8 { ptr = reg + sext(offset8); export *:8 ptr; }
 eaq: reladdr8 is mode=10 & reg=15; reladdr8 { export *:8 reladdr8; }
-eaq: "@B^"^offset8(reg) is mode=11 & reg; offset8 { oa = reg + offset8; ptr = *:4 oa; export *:8 ptr; }
+eaq: "@B^"^offset8(reg) is mode=11 & reg; offset8 { oa = reg + sext(offset8); ptr = *:4 oa; export *:8 ptr; }
 eaq: "@"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export *:8 ptr; }
-eaq: "W^"^offset16(reg) is mode=12 & reg; offset16 { ptr = reg + offset16; export *:8 ptr; }
+eaq: "W^"^offset16(reg) is mode=12 & reg; offset16 { ptr = reg + sext(offset16); export *:8 ptr; }
 eaq: "W^"^reladdr16 is mode=12 & reg=15; reladdr16 { export *:8 reladdr16; }
-eaq: "@W^"^offset16(reg) is mode=13 & reg; offset16 { oa = reg + offset16; ptr = *:4 oa; export *:8 ptr; }
+eaq: "@W^"^offset16(reg) is mode=13 & reg; offset16 { oa = reg + sext(offset16); ptr = *:4 oa; export *:8 ptr; }
 eaq: "@W^"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export *:8 ptr; }
 eaq: "L^"^offset32(reg) is mode=14 & reg; offset32 { ptr = reg + offset32; export *:8 ptr; }
 eaq: reladdr32 is mode=14 & reg=15; reladdr32 { export *:8 reladdr32; }
@@ -522,13 +522,13 @@ eaq_a: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 8; export ptr; }
 # eaq_a: "I^#"^simm64 is mode=8 & reg=15; simm64 { export simm64; }
 eaq_a: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 8; export tmp; }
 eaq_a: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export tmp; }
-eaq_a: "B^"^offset8(reg) is mode=10 & reg; offset8 { ptr = reg + offset8; export ptr; }
+eaq_a: "B^"^offset8(reg) is mode=10 & reg; offset8 { ptr = reg + sext(offset8); export ptr; }
 eaq_a: reladdr8 is mode=10 & reg=15; reladdr8 { export reladdr8; }
-eaq_a: "@B^"^offset8(reg) is mode=11 & reg; offset8 { oa = reg + offset8; ptr = *:4 oa; export ptr; }
+eaq_a: "@B^"^offset8(reg) is mode=11 & reg; offset8 { oa = reg + sext(offset8); ptr = *:4 oa; export ptr; }
 eaq_a: "@"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export ptr; }
-eaq_a: "W^"^offset16(reg) is mode=12 & reg; offset16 { ptr = reg + offset16; export ptr; }
+eaq_a: "W^"^offset16(reg) is mode=12 & reg; offset16 { ptr = reg + sext(offset16); export ptr; }
 eaq_a: "W^"^reladdr16 is mode=12 & reg=15; reladdr16 { export reladdr16; }
-eaq_a: "@W^"^offset16(reg) is mode=13 & reg; offset16 { oa = reg + offset16; ptr = *:4 oa; export ptr; }
+eaq_a: "@W^"^offset16(reg) is mode=13 & reg; offset16 { oa = reg + sext(offset16); ptr = *:4 oa; export ptr; }
 eaq_a: "@W^"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export ptr; }
 eaq_a: "L^"^offset32(reg) is mode=14 & reg; offset32 { ptr = reg + offset32; export ptr; }
 eaq_a: reladdr32 is mode=14 & reg=15; reladdr32 { export reladdr32; }
