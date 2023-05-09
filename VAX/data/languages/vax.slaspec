@@ -17,7 +17,7 @@ define space register type=register_space size=4;
 
 #--------------------------------------------------------------------------
 # Registers
-                                     #0  4  8  c 10 14 18 1c 20 24  28  2c 30 34 38 3c 
+                                     #0  4  8  c 10 14 18 1c 20 24  28  2c 30 34 38 3c
 define register offset=0x00 size=4 [ R0 R1 R2 R3 R4 R5 R6 R7 R8 R9 R10 R11 AP FP SP PC ];
 
 # processor status longword
@@ -29,8 +29,9 @@ define register offset=0x40 size=2 [ _ PSW ];
 # condition flags
 define register offset=0x50 size=1   [ IS_F CUR_MOD PRV_MOD IPL_F DV_F FU_F IV_F T_F N_F Z_F V_F C_F ];
 
-# processor registers
-define register offset=0x100 size=4 [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 PRx07
+# 64 processor registers
+define register offset=0x100 size=4 [
+                               KSP   ESP   SSP   USP   ISP   PRx05 PRx06 PRx07
                                P0BR  P0LR  P1BR  P1LR  SBR   SLR   CPUID PRx0f
                                PCBB  SCBB  IPL   ASTLVL SIRR SISR  PRx16 PRx17
                                ICCS  NICR  ICR   TODR  PRx1c PRx1d PRx1e PRx1f
@@ -48,7 +49,7 @@ define register offset=0x100 size=4 [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 
                                PRx78 PRx79 PRx7a PRx7b PRx7c PRx7d PRx7e PRx7f
                                PRx80 PRx81 PRx82 PRx83 PRx84 PRx85 PRx86 PRx87
                                PRx88 PRx89 PRx8a PRx8b PRx8c PRx8d PRx8e PRx8f
-                               VPSR  VAER  VMAC  VTBIA VSAR  PRx95 PRx96 PRx97
+                               PRx90 PRx91 PRx92 PRx93 PRx94 PRx95 PRx96 PRx97
                                PRx98 PRx99 PRx9a PRx9b PRx9c PRx9d PRx9e PRx9f
                                PRxa0 PRxa1 PRxa2 PRxa3 PRxa4 PRxa5 PRxa6 PRxa7
                                PRxa8 PRxa9 PRxaa PRxab PRxac PRxad PRxae PRxaf
@@ -64,8 +65,11 @@ define register offset=0x100 size=4 [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 
                                PRxf8 PRxf9 PRxfa PRxfb PRxfc PRxfd PRxfe PRxff
                                ];
 
-define register offset=0x1000 size=4  [ loc ];
+define register offset=0x500 size=4  [ loc statusreg ];
 
+define context statusreg
+  is_reg = (0,1) noflow
+;
 
 #--------------------------------------------------------------------------
 # Macros
@@ -114,14 +118,108 @@ macro cmpfflags(op1,op2) {
  C_F = 0;
 }
 
-macro set_field(f, pos, sz, addr) {
-  ptr:4 = addr + sext(pos[29,3]);
-  pos20 = pos[0,2];
-  highest_bit = (sz-1) + pos20;
-  lowest_bit = highest_bit - sz - 1;
-  f = *:4 ptr;
-  f = f << highest_bit; # move higher bits out
-  f = f >> 32-lowest_bit; # move bits down
+macro get_field(f, pos, size, addr, signed_flag) {
+  local sz:1 = size;
+  local sgn:1 = signed_flag;
+  if (sz != 0) goto <size_nonzero>;
+  # size is zero
+  f = 0;
+  goto <exit_get_field>;
+<size_nonzero>
+  local tmp:8 = 0;
+  # compute bit position (0..7)
+  local bitpos:1 = pos:1;
+  if (statusreg != 0) goto <in_register>;
+  # compute bit position (0..7)
+  bitpos = bitpos & 0x07;
+  # compute byte position
+  local ptr:4 = addr + sext(pos[3,29]); # 29 bits, counting from 3
+  tmp = *:8 ptr;
+  goto <extract_from_tmp>;
+<in_register>
+  # addr is a register
+  if ((pos + zext(sz)) > 32) goto <in_doublereg>;
+  # single register
+  tmp = zext(addr);
+  goto <extract_from_tmp>;
+<in_doublereg>
+  local rptr:4 = &addr; # compute Rn ptr
+  tmp = *[register]rptr; # get Rn:Rn+1
+<extract_from_tmp>
+  tmp = tmp >> bitpos;
+  local mask:4 = -1;
+  # leave 'size' bits 1 in mask
+  mask = mask >> (32 - zext(sz));
+  f = tmp:4 & mask;
+  if (sgn == 0) goto <exit_get_field>;
+  # sign extend
+  mask = 1 << (zext(sz)-1); # mask for highest bit
+  if ((f & mask) == 0) goto <exit_get_field>;
+  mask = -1 << zext(sz);
+  f = f | mask;
+<exit_get_field>
+}
+
+macro insert_field(src, pos, size, addr) {
+  local sz:1 = size;
+  if (sz == 0) goto <exit_insert_field>;
+  local tmp:8 = 0;
+  local bitpos:1 = pos:1;
+  if (statusreg != 0) goto <in_register>;
+  # compute bit position (0..7)
+  bitpos = bitpos & 0x07;
+  # compute byte position
+  local ptr:4 = addr + sext(pos[3,29]); # 29 bits, counting from 3
+  local rptr:4 = 0; # register ptr
+  tmp = *:8 ptr;
+  goto <insert_to_tmp>;
+<in_register>
+  # addr is a register
+  if ((pos + zext(sz)) > 32) goto <in_doublereg>;
+  # single register
+  tmp = zext(addr);
+  goto <insert_to_tmp>;
+<in_doublereg>
+  rptr = &addr; # compute Rn ptr
+  addr = *[register]rptr; # get Rn:Rn+1
+<insert_to_tmp>
+  local mask:4 = -1;
+  # leave 'size' bits 1 in mask
+  mask = mask >> (32 - zext(sz));
+  local bmask:4 = -1;
+  # leave 'bitpos' bits 1 in mask
+  # use bmask to 'shift 1 bits from the right'
+  bmask = bmask >> (32 - bitpos);
+  tmp = tmp & sext(((~mask) << bitpos) | bmask); # set field bits to zero, right bits to 1
+  tmp = tmp | zext(src << bitpos); # insert src
+  if (statusreg != 0) goto <write_register>;
+  # write result back
+  *ptr = tmp;
+  goto <exit_insert_field>;
+<write_register>
+  *rptr = tmp;
+<exit_insert_field>
+}
+
+macro find_first(findpos, field, size, ffs) {
+  local state:1 = ffs;
+  local tmp2:1 = 0;
+  local mask:4 = 1;
+<find_first_loop>
+  if (tmp2 > (size:1 - 1)) goto <find_first_exit>;
+  if ((field & mask) == 0) goto <bit_is_clear>;
+  if (state == 1) goto <find_first_found>;
+  goto <find_first_next>;
+<bit_is_clear>
+  if (state == 0) goto <find_first_found>;
+<find_first_next>
+  tmp2 = tmp2 + 1;
+  mask = mask << 1;
+  goto <find_first_loop>;
+<find_first_found>
+  Z_F = 0;
+  findpos = findpos + zext(tmp2);
+<find_first_exit>
 }
 
 macro push(val) {
@@ -189,8 +287,9 @@ define token addrmode (8)
 ;
 
 # processor register
-define token preg (8)
-        procreg = (0,7)
+define token proc_reg (8)
+        preg67  = (6,7)
+        preg    = (0,5)
 ;
 
 
@@ -199,47 +298,27 @@ define token preg (8)
 
 attach variables [ reg ] [ R0 R1 R2 R3 R4 R5 R6 R7 R8 R9 R10 R11 AP FP SP PC ];
 
-attach variables [ procreg ] [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 PRx07
-                               P0BR  P0LR  P1BR  P1LR  SBR   SLR   CPUID PRx0f
-                               PCBB  SCBB  IPL   ASTLVL SIRR SISR  PRx16 PRx17
-                               ICCS  NICR  ICR   TODR  PRx1c PRx1d PRx1e PRx1f
-                               RXCS  RXDB  TXCS  TXDB  PRx24 PRx25 PRx26 PRx27
-                               PRx28 PRx29 PRx2a PRx2b PRx2c PRx2d PRx2e PRx2f
-                               PRx30 PRx31 PRx32 PRx33 PRx34 PRx35 PRx36 PRx37
-                               MAPEN TBIA  TBIS  PRx3b PRx3c PME   SID   TBCHK
-                               PRx40 PRx41 PRx42 PRx43 PRx44 PRx45 PRx46 PRx47
-                               PRx48 PRx49 PRx4a PRx4b PRx4c PRx4d PRx4e PRx4f
-                               PRx50 PRx51 PRx52 PRx53 PRx54 PRx55 PRx56 PRx57
-                               PRx58 PRx59 PRx5a PRx5b PRx5c PRx5d PRx5e PRx5f
-                               PRx60 PRx61 PRx62 PRx63 PRx64 PRx65 PRx66 PRx67
-                               PRx68 PRx69 PRx6a PRx6b PRx6c PRx6d PRx6e PRx6f
-                               PRx70 PRx71 PRx72 PRx73 PRx74 PRx75 PRx76 PRx77
-                               PRx78 PRx79 PRx7a PRx7b PRx7c PRx7d PRx7e PRx7f
-                               PRx80 PRx81 PRx82 PRx83 PRx84 PRx85 PRx86 PRx87
-                               PRx88 PRx89 PRx8a PRx8b PRx8c PRx8d PRx8e PRx8f
-                               VPSR  VAER  VMAC  VTBIA VSAR  PRx95 PRx96 PRx97
-                               PRx98 PRx99 PRx9a PRx9b PRx9c PRx9d PRx9e PRx9f
-                               PRxa0 PRxa1 PRxa2 PRxa3 PRxa4 PRxa5 PRxa6 PRxa7
-                               PRxa8 PRxa9 PRxaa PRxab PRxac PRxad PRxae PRxaf
-                               PRxb0 PRxb1 PRxb2 PRxb3 PRxb4 PRxb5 PRxb6 PRxb7
-                               PRxb8 PRxb9 PRxba PRxbb PRxbc PRxbd PRxbe PRxbf
-                               PRxc0 PRxc1 PRxc2 PRxc3 PRxc4 PRxc5 PRxc6 PRxc7
-                               PRxc8 PRxc9 PRxca PRxcb PRxcc PRxcd PRxce PRxcf
-                               PRxd0 PRxd1 PRxd2 PRxd3 PRxd4 PRxd5 PRxd6 PRxd7
-                               PRxd8 PRxd9 PRxda PRxdb PRxdc PRxdd PRxde PRxdf
-                               PRxe0 PRxe1 PRxe2 PRxe3 PRxe4 PRxe5 PRxe6 PRxe7
-                               PRxe8 PRxe9 PRxea PRxeb PRxec PRxed PRxee PRxef
-                               PRxf0 PRxf1 PRxf2 PRxf3 PRxf4 PRxf5 PRxf6 PRxf7
-                               PRxf8 PRxf9 PRxfa PRxfb PRxfc PRxfd PRxfe PRxff
-                               ];
+attach variables [ preg ] [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 PRx07
+                            P0BR  P0LR  P1BR  P1LR  SBR   SLR   CPUID PRx0f
+                            PCBB  SCBB  IPL   ASTLVL SIRR SISR  PRx16 PRx17
+                            ICCS  NICR  ICR   TODR  PRx1c PRx1d PRx1e PRx1f
+                            RXCS  RXDB  TXCS  TXDB  PRx24 PRx25 PRx26 PRx27
+                            PRx28 PRx29 PRx2a PRx2b PRx2c PRx2d PRx2e PRx2f
+                            PRx30 PRx31 PRx32 PRx33 PRx34 PRx35 PRx36 PRx37
+                            MAPEN TBIA  TBIS  PRx3b PRx3c PME   SID   TBCHK
+                          ];
 
 
 #--------------------------------------------------------------------------
 # Tables
 
-reladdr8: loc is simm8  [ loc = inst_next + simm8; ] { export *[ram]:4 loc; }
-reladdr16: loc is simm16  [ loc = inst_next + simm16; ] { export *[ram]:4 loc; }
-reladdr32: loc is simm32  [ loc = inst_next + simm32; ] { export *[ram]:4 loc; }
+reladdr8: loc is simm8  [ loc = inst_start + operand_offset + 1 + simm8; ] { export *[ram]:4 loc; }
+reladdr16: loc is simm16  [ loc = inst_start + operand_offset + 2 + simm16; ] { export *[ram]:4 loc; }
+reladdr32: loc is simm32  [ loc = inst_start + operand_offset + 4 + simm32; ] { export *[ram]:4 loc; }
+
+offset8: loc is simm8 [ loc = 0 + simm8; ] { export *[const]:1 loc; }
+offset16: loc is simm16 [ loc = 0 + simm16; ] { export *[const]:2 loc; }
+offset32: loc is simm32 [ loc = 0 + simm32; ] { export *[const]:4 loc; }
 
 # condition codes (for branch)
 
@@ -264,7 +343,7 @@ cc: "CS"  is lownibble=15 { tmp:1 = C_F; export tmp; }
 eab: "S^#"^litval is mode67=0 & litval { export *[const]:1 litval; }
 #   4: indexed - see below
 #   5: register
-eab_a: reg is mode=5 & reg { export reg; }
+eab_a: reg is mode=5 & reg [is_reg = 1;] { export reg; }
 eab: reg is mode=5 & reg { tmp:1 = reg:1; export tmp; }
 #   6: register deferred
 eab_a: (reg) is mode=6 & reg { export reg; }
@@ -276,8 +355,9 @@ eab: -(reg) is mode=7 & reg { reg = reg - 1; export *:1 reg; }
 eab_a: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 1; export ptr; }
 eab: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 1; export *:1 ptr; }
 #   8: immediate mode
-# eab_a doesn't make sense
-eab: "I^#"^simm8 is mode=8 & reg=15; simm8 { export simm8; } 
+# eab_a one-byte immediate address
+eab_a: "I^#"^simm8 is mode=8 & reg=15; simm8 { export *[const]:4 simm8; }
+eab: "I^#"^simm8 is mode=8 & reg=15; simm8 { export simm8; }
 #   9: auto increment deferred
 eab_a: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 4; export tmp; }
 eab: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 4; export *:1 tmp; }
@@ -285,41 +365,41 @@ eab: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 4; export *:1 tmp; }
 eab_a: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export tmp; }
 eab: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export *:1 tmp; }
 #   10: byte displacement
-eab_a: "B^"^simm8(reg) is mode=10 & reg; simm8 { ptr = reg + simm8; export ptr; }
-eab: "B^"^simm8(reg) is mode=10 & reg; simm8 { ptr = reg + simm8; export *:1 ptr; }
+eab_a: "B^"^offset8(reg) is mode=10 & reg; offset8 { ptr = reg + sext(offset8); export ptr; }
+eab: "B^"^offset8(reg) is mode=10 & reg; offset8 { ptr = reg + sext(offset8); export *:1 ptr; }
 #   10: byte relative
 eab_a: "B^"^reladdr8 is mode=10 & reg=15; reladdr8 { tmp:4 = reladdr8; export tmp; }
 eab: "B^"^reladdr8 is mode=10 & reg=15; reladdr8 { export *:1 reladdr8; }
 #   11: byte displacement deferred
-eab_a: "@B^"^simm8(reg) is mode=11 & reg; simm8 { oa = reg + simm8; ptr = *:4 oa; export ptr; }
-eab: "@B^"^simm8(reg) is mode=11 & reg; simm8 { oa = reg + simm8; ptr = *:4 oa; export *:1 ptr; }
+eab_a: "@B^"^offset8(reg) is mode=11 & reg; offset8 { oa = reg + sext(offset8); ptr = *:4 oa; export ptr; }
+eab: "@B^"^offset8(reg) is mode=11 & reg; offset8 { oa = reg + sext(offset8); ptr = *:4 oa; export *:1 ptr; }
 #   11: byte relative deferred
-eab_a: "@B^"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export ptr; }
-eab: "@B^"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export *:1 ptr; }
+eab_a: "@"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export ptr; }
+eab: "@"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export *:1 ptr; }
 #   12: word displacement
-eab_a: "W^"^simm16(reg) is mode=12 & reg; simm16 { ptr = reg + simm16; export ptr; }
-eab: "W^"^simm16(reg) is mode=12 & reg; simm16 { ptr = reg + simm16; export *:1 ptr; }
+eab_a: "W^"^offset16(reg) is mode=12 & reg; offset16 { ptr = reg + sext(offset16); export ptr; }
+eab: "W^"^offset16(reg) is mode=12 & reg; offset16 { ptr = reg + sext(offset16); export *:1 ptr; }
 #   12: word relative
 eab_a: "W^"^reladdr16 is mode=12 & reg=15; reladdr16 { tmp = reladdr16; export tmp; }
 eab: "W^"^reladdr16 is mode=12 & reg=15; reladdr16 { export *:1 reladdr16; }
 #   13: word displacement deferred
-eab_a: "@W^"^simm16(reg) is mode=13 & reg; simm16 { oa = reg + simm16; ptr = *:4 oa; export ptr; }
-eab: "@W^"^simm16(reg) is mode=13 & reg; simm16 { oa = reg + simm16; ptr = *:4 oa; export *:1 ptr; }
+eab_a: "@W^"^offset16(reg) is mode=13 & reg; offset16 { oa = reg + sext(offset16); ptr = *:4 oa; export ptr; }
+eab: "@W^"^offset16(reg) is mode=13 & reg; offset16 { oa = reg + sext(offset16); ptr = *:4 oa; export *:1 ptr; }
 #   13: word relative deferred
-eab_a: "@W^"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export ptr; }
-eab: "@W^"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export *:1 ptr; }
+eab_a: "@"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export ptr; }
+eab: "@"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export *:1 ptr; }
 #   14: long displacement
-eab_a: "L^"^simm32(reg) is mode=14 & reg; simm32 { ptr = reg + simm32; export ptr; }
-eab: "L^"^simm32(reg) is mode=14 & reg; simm32 { ptr = reg + simm32; export *:1 ptr; }
+eab_a: "L^"^offset32(reg) is mode=14 & reg; offset32 { ptr = reg + offset32; export ptr; }
+eab: "L^"^offset32(reg) is mode=14 & reg; offset32 { ptr = reg + offset32; export *:1 ptr; }
 #   14: long relative
 eab_a: "L^"^reladdr32 is mode=14 & reg=15; reladdr32 { tmp = reladdr32; export tmp; }
 eab: "L^"^reladdr32 is mode=14 & reg=15; reladdr32 { export *:1 reladdr32; }
 #   15: long displacement deferred
-eab_a: "@L^"^simm32(reg) is mode=15 & reg; simm32 { oa = reg + simm32; ptr = *:4 oa; export ptr; }
-eab: "@L^"^simm32(reg) is mode=15 & reg; simm32 { oa = reg + simm32; ptr = *:4 oa; export *:1 ptr; }
+eab_a: "@L^"^offset32(reg) is mode=15 & reg; offset32 { oa = reg + offset32; ptr = *:4 oa; export ptr; }
+eab: "@L^"^offset32(reg) is mode=15 & reg; offset32 { oa = reg + offset32; ptr = *:4 oa; export *:1 ptr; }
 #   15: long relative deferred
-eab_a: "@L^"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export ptr; }
-eab: "@L^"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export *:1 ptr; }
+eab_a: "@"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export ptr; }
+eab: "@"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export *:1 ptr; }
 
 #  word
 eaw: "S^#"^litval is mode67=0 & litval { export *[const]:2 litval; }
@@ -327,42 +407,42 @@ eaw: reg is mode=5 & reg { tmp:2 = reg:2; export tmp; }
 eaw: (reg) is mode=6 & reg { export *:2 reg; }
 eaw: -(reg) is mode=7 & reg { reg = reg - 2; export *:2 reg; }
 eaw: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 2; export *:2 ptr; }
-eaw: "I^#"^simm16 is mode=8 & reg=15; simm16 { export simm16; } 
+eaw: "I^#"^simm16 is mode=8 & reg=15; simm16 { export simm16; }
 eaw: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 4; export *:2 tmp; }
 eaw: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export *:2 tmp; }
-eaw: "B^"^simm8(reg) is mode=10 & reg; simm8 { ptr = reg + simm8; export *:2 ptr; }
-eaw: "B^"^reladdr8 is mode=10 & reg=15; reladdr8 { export *:2 reladdr8; }
-eaw: "@B^"^simm8(reg) is mode=11 & reg; simm8 { oa = reg + simm8; ptr = *:4 oa; export *:2 ptr; }
-eaw: "@B^"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export *:2 ptr; }
-eaw: "W^"^simm16(reg) is mode=12 & reg; simm16 { ptr = reg + simm16; export *:2 ptr; }
-eaw: "W^"^reladdr16 is mode=12 & reg=15; reladdr16 { export *:2 reladdr16; }
-eaw: "@W^"^simm16(reg) is mode=13 & reg; simm16 { oa = reg + simm16; ptr = *:4 oa; export *:2 ptr; }
-eaw: "@W^"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export *:2 ptr; }
-eaw: "L^"^simm32(reg) is mode=14 & reg; simm32 { ptr = reg + simm32; export *:2 ptr; }
-eaw: "L^"^reladdr32 is mode=14 & reg=15; reladdr32 { export *:2 reladdr32; }
-eaw: "@L^"^simm32(reg) is mode=15 & reg; simm32 { oa = reg + simm32; ptr = *:4 oa; export *:2 ptr; }
-eaw: "@L^"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export *:2 ptr; }
+eaw: "B^"offset8(reg) is mode=10 & reg; offset8 { ptr = reg + sext(offset8); export *:2 ptr; }
+eaw: reladdr8 is mode=10 & reg=15; reladdr8 { export *:2 reladdr8; }
+eaw: "@B^"^offset8(reg) is mode=11 & reg; offset8 { oa = reg + sext(offset8); ptr = *:4 oa; export *:2 ptr; }
+eaw: "@"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export *:2 ptr; }
+eaw: "W^"^offset16(reg) is mode=12 & reg; offset16 { ptr = reg + sext(offset16); export *:2 ptr; }
+eaw: reladdr16 is mode=12 & reg=15; reladdr16 { export *:2 reladdr16; }
+eaw: "@W^"^offset16(reg) is mode=13 & reg; offset16 { oa = reg + sext(offset16); ptr = *:4 oa; export *:2 ptr; }
+eaw: "@"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export *:2 ptr; }
+eaw: "L^"^offset32(reg) is mode=14 & reg; offset32 { ptr = reg + offset32; export *:2 ptr; }
+eaw: reladdr32 is mode=14 & reg=15; reladdr32 { export *:2 reladdr32; }
+eaw: "@L^"^offset32(reg) is mode=15 & reg; offset32 { oa = reg + offset32; ptr = *:4 oa; export *:2 ptr; }
+eaw: "@"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export *:2 ptr; }
 
 # eaw_a: "S^#"^litval is mode67=0 & litval { ptr:4 = inst_next - 1; export [ram]ptr; }
 eaw_a: reg is mode=5 & reg { export reg; }
 eaw_a: (reg) is mode=6 & reg { export reg; }
 eaw_a: -(reg) is mode=7 & reg { reg = reg - 2; export reg; }
 eaw_a: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 2; export ptr; }
-# eaw_a: "I^#"^simm16 is mode=8 & reg=15; simm16 { ptr:4 = inst_next - 2; export [ram]ptr; } 
+eaw_a: "I^#"^simm16 is mode=8 & reg=15; simm16 { export *[const]:4 simm16; }
 eaw_a: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 4; export tmp; }
 eaw_a: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export tmp; }
-eaw_a: "B^"^simm8(reg) is mode=10 & reg; simm8 { ptr = reg + simm8; export ptr; }
-eaw_a: "B^"^reladdr8 is mode=10 & reg=15; reladdr8 { export reladdr8; }
-eaw_a: "@B^"^simm8(reg) is mode=11 & reg; simm8 { oa = reg + simm8; ptr = *:4 oa; export ptr; }
-eaw_a: "@B^"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export ptr; }
-eaw_a: "W^"^simm16(reg) is mode=12 & reg; simm16 { ptr = reg + simm16; export ptr; }
-eaw_a: "W^"^reladdr16 is mode=12 & reg=15; reladdr16 { export reladdr16; }
-eaw_a: "@W^"^simm16(reg) is mode=13 & reg; simm16 { oa = reg + simm16; ptr = *:4 oa; export ptr; }
-eaw_a: "@W^"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export ptr; }
-eaw_a: "L^"^simm32(reg) is mode=14 & reg; simm32 { ptr = reg + simm32; export ptr; }
-eaw_a: "L^"^reladdr32 is mode=14 & reg=15; reladdr32 { export reladdr32; }
-eaw_a: "@L^"^simm32(reg) is mode=15 & reg; simm32 { oa = reg + simm32; ptr = *:4 oa; export ptr; }
-eaw_a: "@L^"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export ptr; }
+eaw_a: "B^"^offset8(reg) is mode=10 & reg; offset8 { ptr = reg + sext(offset8); export ptr; }
+eaw_a: reladdr8 is mode=10 & reg=15; reladdr8 { export reladdr8; }
+eaw_a: "@B^"^offset8(reg) is mode=11 & reg; offset8 { oa = reg + sext(offset8); ptr = *:4 oa; export ptr; }
+eaw_a: "@"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export ptr; }
+eaw_a: "W^"^offset16(reg) is mode=12 & reg; offset16 { ptr = reg + sext(offset16); export ptr; }
+eaw_a: reladdr16 is mode=12 & reg=15; reladdr16 { export reladdr16; }
+eaw_a: "@W^"^offset16(reg) is mode=13 & reg; offset16 { oa = reg + sext(offset16); ptr = *:4 oa; export ptr; }
+eaw_a: "@"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export ptr; }
+eaw_a: "L^"^offset32(reg) is mode=14 & reg; offset32 { ptr = reg + offset32; export ptr; }
+eaw_a: reladdr32 is mode=14 & reg=15; reladdr32 { export reladdr32; }
+eaw_a: "@L^"^offset32(reg) is mode=15 & reg; offset32 { oa = reg + offset32; ptr = *:4 oa; export ptr; }
+eaw_a: "@"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export ptr; }
 
 #  long
 eal: "S^#"^litval is mode67=0 & litval { export *[const]:4 litval; }
@@ -370,42 +450,42 @@ eal: reg is mode=5 & reg { export reg; }
 eal: (reg) is mode=6 & reg { export *reg; }
 eal: -(reg) is mode=7 & reg { reg = reg - 4; export *reg; }
 eal: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 4; export *ptr; }
-eal: "I^#"^simm32 is mode=8 & reg=15; simm32 { export simm32; } 
+eal: "I^#"^simm32 is mode=8 & reg=15; simm32 { export simm32; }
 eal: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 4; export *:4 tmp; }
 eal: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export *:4 tmp; }
-eal: "B^"^simm8(reg) is mode=10 & reg; simm8 { ptr = reg + simm8; export *:4 ptr; }
-eal: "B^"^reladdr8 is mode=10 & reg=15; reladdr8 { export *:4 reladdr8; }
-eal: "@B^"^simm8(reg) is mode=11 & reg; simm8 { oa = reg + simm8; ptr = *:4 oa; export *:4 ptr; }
-eal: "@B^"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export *:4 ptr; }
-eal: "W^"^simm16(reg) is mode=12 & reg; simm16 { ptr = reg + simm16; export *:4 ptr; }
-eal: "W^"^reladdr16 is mode=12 & reg=15; reladdr16 { export *:4 reladdr16; }
-eal: "@W^"^simm16(reg) is mode=13 & reg; simm16 { oa = reg + simm16; ptr = *:4 oa; export *:4 ptr; }
-eal: "@W^"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export *:4 ptr; }
-eal: "L^"^simm32(reg) is mode=14 & reg; simm32 { ptr = reg + simm32; export *:4 ptr; }
-eal: "L^"^reladdr32 is mode=14 & reg=15; reladdr32 { export *:4 reladdr32; }
-eal: "@L^"^simm32(reg) is mode=15 & reg; simm32 { oa = reg + simm32; ptr = *:4 oa; export *:4 ptr; }
-eal: "@L^"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export *:4 ptr; }
+eal: "B^"^offset8(reg) is mode=10 & reg; offset8 { ptr = reg + sext(offset8); export *:4 ptr; }
+eal: reladdr8 is mode=10 & reg=15; reladdr8 { export *:4 reladdr8; }
+eal: "@B^"^offset8(reg) is mode=11 & reg; offset8 { oa = reg + sext(offset8); ptr = *:4 oa; export *:4 ptr; }
+eal: "@"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export *:4 ptr; }
+eal: "W^"^offset16(reg) is mode=12 & reg; offset16 { ptr = reg + sext(offset16); export *:4 ptr; }
+eal: reladdr16 is mode=12 & reg=15; reladdr16 { export *:4 reladdr16; }
+eal: "@W^"^offset16(reg) is mode=13 & reg; offset16 { oa = reg + sext(offset16); ptr = *:4 oa; export *:4 ptr; }
+eal: "@"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export *:4 ptr; }
+eal: "L^"^offset32(reg) is mode=14 & reg; offset32 { ptr = reg + offset32; export *:4 ptr; }
+eal: reladdr32 is mode=14 & reg=15; reladdr32 { export *:4 reladdr32; }
+eal: "@L^"^offset32(reg) is mode=15 & reg; offset32 { oa = reg + offset32; ptr = *:4 oa; export *:4 ptr; }
+eal: "@"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export *:4 ptr; }
 
 # eal_a: "S^#"^litval is mode67=0 & litval { ptr:4 = inst_next - 1; export [ram]ptr; }
 eal_a: reg is mode=5 & reg { export reg; }
 eal_a: (reg) is mode=6 & reg { export reg; }
 eal_a: -(reg) is mode=7 & reg { reg = reg - 4; export reg; }
 eal_a: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 4; export ptr; }
-# eal_a: "I^#"^simm32 is mode=8 & reg=15; simm32 { ptr:4 = inst_next - 4; export [ram]ptr; } 
+eal_a: "I^#"^simm32 is mode=8 & reg=15; simm32 { export *[const]:4 simm32; }
 eal_a: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 4; export tmp; }
 eal_a: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export tmp; }
-eal_a: "B^"^simm8(reg) is mode=10 & reg; simm8 { ptr = reg + simm8; export ptr; }
-eal_a: "B^"^reladdr8 is mode=10 & reg=15; reladdr8 { export reladdr8; }
-eal_a: "@B^"^simm8(reg) is mode=11 & reg; simm8 { oa = reg + simm8; ptr = *:4 oa; export ptr; }
-eal_a: "@B^"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export ptr; }
-eal_a: "W^"^simm16(reg) is mode=12 & reg; simm16 { ptr = reg + simm16; export ptr; }
-eal_a: "W^"^reladdr16 is mode=12 & reg=15; reladdr16 { export reladdr16; }
-eal_a: "@W^"^simm16(reg) is mode=13 & reg; simm16 { oa = reg + simm16; ptr = *:4 oa; export ptr; }
-eal_a: "@W^"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export ptr; }
-eal_a: "L^"^simm32(reg) is mode=14 & reg; simm32 { ptr = reg + simm32; export ptr; }
-eal_a: "L^"^reladdr32 is mode=14 & reg=15; reladdr32 { export reladdr32; }
-eal_a: "@L^"^simm32(reg) is mode=15 & reg; simm32 { oa = reg + simm32; ptr = *:4 oa; export ptr; }
-eal_a: "@L^"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export ptr; }
+eal_a: "B^"^offset8(reg) is mode=10 & reg; offset8 { ptr = reg + sext(offset8); export ptr; }
+eal_a: reladdr8 is mode=10 & reg=15; reladdr8 { export reladdr8; }
+eal_a: "@B^"^offset8(reg) is mode=11 & reg; offset8 { oa = reg + sext(offset8); ptr = *:4 oa; export ptr; }
+eal_a: "@"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export ptr; }
+eal_a: "W^"^offset16(reg) is mode=12 & reg; offset16 { ptr = reg + sext(offset16); export ptr; }
+eal_a: reladdr16 is mode=12 & reg=15; reladdr16 { export reladdr16; }
+eal_a: "@W^"^offset16(reg) is mode=13 & reg; offset16 { oa = reg + sext(offset16); ptr = *:4 oa; export ptr; }
+eal_a: "@"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export ptr; }
+eal_a: "L^"^offset32(reg) is mode=14 & reg; offset32 { ptr = reg + offset32; export ptr; }
+eal_a: reladdr32 is mode=14 & reg=15; reladdr32 { export reladdr32; }
+eal_a: "@L^"^offset32(reg) is mode=15 & reg; offset32 { oa = reg + offset32; ptr = *:4 oa; export ptr; }
+eal_a: "@"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export ptr; }
 
 #  quad
 eaq: "S^#"^litval is mode67=0 & litval { export *[const]:8 litval; }
@@ -420,47 +500,51 @@ eaq: reg is mode=5 & reg {
 eaq: (reg) is mode=6 & reg { export *:8 reg; }
 eaq: -(reg) is mode=7 & reg { reg = reg - 8; export *:8 reg; }
 eaq: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 8; export *:8 ptr; }
-eaq: "I^#"^simm64 is mode=8 & reg=15; simm64 { export simm64; } 
+eaq: "I^#"^simm64 is mode=8 & reg=15; simm64 { export simm64; }
 eaq: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 8; export *:8 tmp; }
 eaq: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export *:8 tmp; }
-eaq: "B^"^simm8(reg) is mode=10 & reg; simm8 { ptr = reg + simm8; export *:8 ptr; }
-eaq: "B^"^reladdr8 is mode=10 & reg=15; reladdr8 { export *:8 reladdr8; }
-eaq: "@B^"^simm8(reg) is mode=11 & reg; simm8 { oa = reg + simm8; ptr = *:4 oa; export *:8 ptr; }
-eaq: "@B^"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export *:8 ptr; }
-eaq: "W^"^simm16(reg) is mode=12 & reg; simm16 { ptr = reg + simm16; export *:8 ptr; }
+eaq: "B^"^offset8(reg) is mode=10 & reg; offset8 { ptr = reg + sext(offset8); export *:8 ptr; }
+eaq: reladdr8 is mode=10 & reg=15; reladdr8 { export *:8 reladdr8; }
+eaq: "@B^"^offset8(reg) is mode=11 & reg; offset8 { oa = reg + sext(offset8); ptr = *:4 oa; export *:8 ptr; }
+eaq: "@"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export *:8 ptr; }
+eaq: "W^"^offset16(reg) is mode=12 & reg; offset16 { ptr = reg + sext(offset16); export *:8 ptr; }
 eaq: "W^"^reladdr16 is mode=12 & reg=15; reladdr16 { export *:8 reladdr16; }
-eaq: "@W^"^simm16(reg) is mode=13 & reg; simm16 { oa = reg + simm16; ptr = *:4 oa; export *:8 ptr; }
+eaq: "@W^"^offset16(reg) is mode=13 & reg; offset16 { oa = reg + sext(offset16); ptr = *:4 oa; export *:8 ptr; }
 eaq: "@W^"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export *:8 ptr; }
-eaq: "L^"^simm32(reg) is mode=14 & reg; simm32 { ptr = reg + simm32; export *:8 ptr; }
-eaq: "L^"^reladdr32 is mode=14 & reg=15; reladdr32 { export *:8 reladdr32; }
-eaq: "@L^"^simm32(reg) is mode=15 & reg; simm32 { oa = reg + simm32; ptr = *:4 oa; export *:8 ptr; }
-eaq: "@L^"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export *:8 ptr; }
+eaq: "L^"^offset32(reg) is mode=14 & reg; offset32 { ptr = reg + offset32; export *:8 ptr; }
+eaq: reladdr32 is mode=14 & reg=15; reladdr32 { export *:8 reladdr32; }
+eaq: "@L^"^offset32(reg) is mode=15 & reg; offset32 { oa = reg + offset32; ptr = *:4 oa; export *:8 ptr; }
+eaq: "@"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export *:8 ptr; }
 
 # eaq_a: "S^#"^litval is mode67=0 & litval { ptr:4 = inst_next - 1; export [ram]ptr; }
 eaq_a: (reg) is mode=6 & reg { export reg; }
 eaq_a: -(reg) is mode=7 & reg { reg = reg - 8; export reg; }
 eaq_a: (reg)+ is mode=8 & reg { ptr = reg; reg = reg + 8; export ptr; }
-# eaq_a: "I^#"^simm64 is mode=8 & reg=15; simm64 { export simm64; } 
+# eaq_a: "I^#"^simm64 is mode=8 & reg=15; simm64 { export simm64; }
 eaq_a: @(reg)+ is mode=9 & reg { tmp:4 = *:4 reg; reg = reg + 8; export tmp; }
 eaq_a: "@#"^simm32 is mode=9 & reg=15; simm32 { ptr:4 = simm32; tmp = *:4 ptr; export tmp; }
-eaq_a: "B^"^simm8(reg) is mode=10 & reg; simm8 { ptr = reg + simm8; export ptr; }
-eaq_a: "B^"^reladdr8 is mode=10 & reg=15; reladdr8 { export reladdr8; }
-eaq_a: "@B^"^simm8(reg) is mode=11 & reg; simm8 { oa = reg + simm8; ptr = *:4 oa; export ptr; }
-eaq_a: "@B^"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export ptr; }
-eaq_a: "W^"^simm16(reg) is mode=12 & reg; simm16 { ptr = reg + simm16; export ptr; }
+eaq_a: "B^"^offset8(reg) is mode=10 & reg; offset8 { ptr = reg + sext(offset8); export ptr; }
+eaq_a: reladdr8 is mode=10 & reg=15; reladdr8 { export reladdr8; }
+eaq_a: "@B^"^offset8(reg) is mode=11 & reg; offset8 { oa = reg + sext(offset8); ptr = *:4 oa; export ptr; }
+eaq_a: "@"^reladdr8 is mode=11 & reg=15; reladdr8 { ptr = *:4 reladdr8; export ptr; }
+eaq_a: "W^"^offset16(reg) is mode=12 & reg; offset16 { ptr = reg + sext(offset16); export ptr; }
 eaq_a: "W^"^reladdr16 is mode=12 & reg=15; reladdr16 { export reladdr16; }
-eaq_a: "@W^"^simm16(reg) is mode=13 & reg; simm16 { oa = reg + simm16; ptr = *:4 oa; export ptr; }
+eaq_a: "@W^"^offset16(reg) is mode=13 & reg; offset16 { oa = reg + sext(offset16); ptr = *:4 oa; export ptr; }
 eaq_a: "@W^"^reladdr16 is mode=13 & reg=15; reladdr16 { ptr = *:4 reladdr16; export ptr; }
-eaq_a: "L^"^simm32(reg) is mode=14 & reg; simm32 { ptr = reg + simm32; export ptr; }
-eaq_a: "L^"^reladdr32 is mode=14 & reg=15; reladdr32 { export reladdr32; }
-eaq_a: "@L^"^simm32(reg) is mode=15 & reg; simm32 { oa = reg + simm32; ptr = *:4 oa; export ptr; }
-eaq_a: "@L^"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export ptr; }
+eaq_a: "L^"^offset32(reg) is mode=14 & reg; offset32 { ptr = reg + offset32; export ptr; }
+eaq_a: reladdr32 is mode=14 & reg=15; reladdr32 { export reladdr32; }
+eaq_a: "@L^"^offset32(reg) is mode=15 & reg; offset32 { oa = reg + offset32; ptr = *:4 oa; export ptr; }
+eaq_a: "@"^reladdr32 is mode=15 & reg=15; reladdr32 { ptr = *:4 reladdr32; export ptr; }
 
 # indexed
 eab: eab_a[reg] is mode=4 & reg; eab_a { ptr:4 = eab_a + reg; export *:1 ptr; }
+eab_a: eab_a[reg] is mode=4 & reg; eab_a { ptr:4 = eab_a:4 + reg; export ptr; }
 eaw: eaw_a[reg] is mode=4 & reg; eaw_a { ptr:4 = eaw_a + (2 * reg); export *:2 ptr; }
+eaw_a: eaw_a[reg] is mode=4 & reg; eaw_a { ptr:4 = eaw_a:4 + (2 * reg); export ptr; }
 eal: eal_a[reg] is mode=4 & reg; eal_a { ptr:4 = eal_a + (4 * reg); export *:4 ptr; }
+eal_a: eal_a[reg] is mode=4 & reg; eal_a { ptr:4 = eal_a:4 + (4 * reg); export ptr; }
 eaq: eaq_a[reg] is mode=4 & reg; eaq_a { ptr:4 = eaq_a + (8 * reg); export *:8 ptr; }
+eaq_a: eaq_a[reg] is mode=4 & reg; eaq_a { ptr:4 = eaq_a:4 + (8 * reg); export ptr; }
 
 
 # readable <size> <anything>
@@ -472,6 +556,7 @@ rlx: eal is eal { tmp = eal; export tmp; }
 rlx2: eal is eal { tmp = eal; export tmp; }
 rlx3: eal is eal { tmp = eal; export tmp; }
 rlx4: eal is eal { tmp = eal; export tmp; }
+rqx: eaq is eaq { tmp = eaq; export tmp; }
 
 # readable float F
 rfx: eal is eal { tmp = eal; export tmp; }
@@ -498,6 +583,7 @@ mdx: mqx is mqx { tmp = mqx; export tmp; }
 eab_a2: eab_a is eab_a { tmp = eab_a; export tmp; }
 eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
 
+field: eab_a is eab_a { export eab_a; }
 
 #--------------------------------------------------------------------------
 # Mnemonics
@@ -565,37 +651,49 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
   C_F = 0;
 }
 
+# bit clear
+#      mask.rb, dst.mb
 :BICB2 eab, mbx is opcode=0x8a; eab; mbx { tmp:1 = mbx & ~(eab); mbx = tmp; resflags(tmp); V_F = 0; }
+#      mask.rb, src.rb, dst.mb
 :BICB3 eab, rbx, mbx is opcode=0x8b; eab; rbx; mbx { tmp:1 = rbx & ~(eab); mbx = tmp; resflags(tmp); V_F = 0; }
 :BICW2 eaw, mwx is opcode=0xaa; eaw; mwx { tmp:2 = mwx & ~(eaw); mwx = tmp; resflags(tmp); V_F = 0; }
 :BICW3 eaw, rwx, mwx is opcode=0xab; eaw; rwx; mwx { tmp:2 = rwx & ~(eaw); mwx = tmp; resflags(tmp); V_F = 0; }
 :BICL2 eal, mlx is opcode=0xca; eal; mlx { tmp:4 = mlx & ~(eal); mlx = tmp; resflags(tmp); V_F = 0; }
 :BICL3 eal, rlx, mlx is opcode=0xcb; eal; rlx; mlx { tmp:4 = rlx & ~(eal); mlx = tmp; resflags(tmp); V_F = 0; }
 
+# bit set
+#      mask.rb, dst.mb
 :BISB2 eab, mbx is opcode=0x88; eab; mbx { tmp:1 = mbx | eab; mbx = tmp; resflags(tmp); V_F = 0; }
+#      mask.rb, src.rb, dst.mb
 :BISB3 eab, rbx, mbx is opcode=0x89; eab; rbx; mbx { tmp:1 = rbx | eab; mbx = tmp; resflags(tmp); V_F = 0; }
 :BISW2 eaw, mwx is opcode=0xa8; eaw; mwx { tmp:2 = mwx | eaw; mwx = tmp; resflags(tmp); V_F = 0; }
 :BISW3 eaw, rwx, mwx is opcode=0xa9; eaw; rwx; mwx { tmp:2 = rwx | eaw; mwx = tmp; resflags(tmp); V_F = 0; }
 :BISL2 eal, mlx is opcode=0xc8; eal; mlx { tmp:4 = mlx | eal; mlx = tmp; resflags(tmp); V_F = 0; }
 :BISL3 eal, rlx, mlx is opcode=0xc9; eal; rlx; mlx { tmp:4 = rlx | eal; mlx = tmp; resflags(tmp); V_F = 0; }
 
-:BIZB2 eab, rbx is opcode=0x93; eab; rbx { tmp:1 = rbx & eab; resflags(tmp); V_F = 0; }
+# bit test
+#      mask.rb, src.rb
+:BITB2 eab, rbx is opcode=0x93; eab; rbx { tmp:1 = rbx & eab; resflags(tmp); V_F = 0; }
 :BITW2 eaw, rwx is opcode=0xb3; eaw; rwx { tmp:2 = rwx & eaw; resflags(tmp); V_F = 0; }
 :BITL2 eal, rlx is opcode=0xd3; eal; rlx { tmp:4 = rlx & eal; resflags(tmp); V_F = 0; }
 
+# clear
 :CLRB eab is opcode=0x94; eab { eab = 0; N_F = 0; Z_F = 1; V_F = 1; }
 :CLRW eaw is opcode=0xb4; eaw { eaw = 0; N_F = 0; Z_F = 1; V_F = 1; }
 :CLRL eal is opcode=0xd4; eal { eal = 0; N_F = 0; Z_F = 1; V_F = 1; }
 :CLRQ eaq is opcode=0x7c; eaq { eaq = 0; N_F = 0; Z_F = 1; V_F = 1; }
 #:CLRO eao is opcodew=0x7CFD
 
+# compare
 :CMPB eab, rbx is opcode=0x91; eab; rbx { cmpflags(eab, rbx); }
 :CMPW eaw, rwx is opcode=0xb1; eaw; rwx { cmpflags(eaw, rwx); }
 :CMPL eal, rlx is opcode=0xD1; eal; rlx { cmpflags(eal, rlx); }
 
+# convert
 :CVTBW eab, mwx is opcode=0x99; eab; mwx { tmp:2 = sext(eab); mwx = tmp; resflags(tmp); C_F = 0; }
 :CVTBL eab, mlx is opcode=0x98; eab; mlx { tmp:4 = sext(eab); mlx = tmp; resflags(tmp); C_F = 0; }
 :CVTWL eaw, mlx is opcode=0x32; eaw; mlx { tmp:4 = sext(eaw); mlx = tmp; resflags(tmp); C_F = 0; }
+# convert long to byte
 :CVTWB eaw, mbx is opcode=0x33; eaw; mbx {
   tmp = eaw:1;
   remaining:2 = (eaw & 0xff00);
@@ -610,6 +708,7 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
   resflags(tmp);
   C_F = 0;
 }
+# convert long to byte
 :CVTLB eal, mbx is opcode=0xf6; eal; mbx {
   tmp = eal:1;
   remaining:4 = (eal & 0xffffff00);
@@ -624,6 +723,7 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
   resflags(tmp);
   C_F = 0;
 }
+# convert long to word
 :CVTLW eal, mwx is opcode=0xf7; eal; mwx {
   tmp = eal:2;
   remaining:4 = (eal & 0xffff0000);
@@ -639,6 +739,7 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
   C_F = 0;
 }
 
+# decrement
 :DECB mbx is opcode=0x97; mbx {
   if (mbx == 0x80) goto <underflow>;
   if (mbx == 0) goto <negative>;
@@ -691,6 +792,7 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
   resflags(mlx);
 }
 
+# divide
 :DIVB2 eab, mbx is opcode=0x86; eab; mbx { mbx = mbx / eab; C_F = 0; resflags(mbx); } # FIXME V_F
 :DIVB3 eab, rbx, mbx is opcode=0x87; eab; rbx; mbx { mbx = rbx / eab; C_F = 0; resflags(mbx); } # FIXME V_F
 :DIVW2 eaw, mwx is opcode=0xa6; eaw; mwx { mwx = mwx / eaw; C_F = 0; resflags(mwx); } # FIXME V_F
@@ -701,6 +803,7 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
 :EDIV eal, eaq, mlx, mlx2 is opcode=0x7b; eal; eaq; mlx; mlx2 { divr:8 = sext(eal); quo = eaq / divr; mlx = quo:4; rem = eaq % divr; mlx2 = rem:4; C_F = 0; resflags(mlx); } # FIXME V_F
 :EMUL eal, rlx, rlx2, mqx is opcode=0x7a; eal; rlx; rlx2; mqx { mqx = sext(rlx * eal) + sext(rlx2); V_F = 0; C_F = 0; resflags(mqx); }
 
+# increment
 :INCB mbx is opcode=0x96; mbx {
   if (mbx == 0x7f) goto <overflow>;
   if (mbx == 0xff) goto <positive>;
@@ -791,8 +894,11 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
 :MOVQ eaq, mqx is opcode=0x7d; eaq; mqx { mqx = eaq; V_F = 0; resflags(mqx); }
 #:MOVO FIXME
 
+# move unsigned (zero-extend) byte to word
 :MOVZBW eab, mwx is opcode=0x9b; eab; mwx { mwx = zext(eab); resflags(mwx); N_F = 0; V_F = 0; }
+#   "  byte to long
 :MOVZBL eab, mlx is opcode=0x9a; eab; mlx { mlx = zext(eab); resflags(mlx); N_F = 0; V_F = 0; }
+#   "  word to long
 :MOVZWL eaw, mlx is opcode=0x3c; eaw; mlx { mlx = zext(eaw); resflags(mlx); N_F = 0; V_F = 0; }
 
 :MULB2 eab, mbx is opcode=0x84; eab; mbx { mbx = mbx * eab; C_F = 0; resflags(mbx); } # FIXME V_F
@@ -804,21 +910,26 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
 
 :PUSHL eal is opcode=0xdd; eal { push(eal); V_F = 0; resflags(eal); }
 
+# rotate long
+#     cnt.rb, src.rl, dst.wl
 :ROTL eab, eal, mlx is opcode=0x9c; eab; eal; mlx {
-  if (eab s> 0) goto <rotate_left>;
-  if (eab s< 0) goto <rotate_right>;
+#  local shifted:4;
+#  local rot_bits:4;
+#  if (eab s> 0) goto <rotate_left>;
+#  if (eab s< 0) goto <rotate_right>;
   mlx = eal;
-  goto <end>;
-<rotate_left>
-  shifted = eal << eab;
-  rot_bits = eal >> (32-eab);
-  mlx = shifted | rot_bits;
-  goto <end>;
-<rotate_right>
-  shifted = eal >> eab;
-  rot_bits = eal << (32+eab); # eab is negative
-  mlx = shifted | rot_bits;
-<end>
+#  goto <rotate_exit>;
+#<rotate_left>
+#  shifted = eal << eab;
+#  rot_bits = eal >> (32-eab);
+#  goto <rotate_result>;
+#<rotate_right>
+#  eab = -eab;
+#  shifted = eal >> eab;
+#  rot_bits = eal << (32-eab);
+#<rotate_result>
+#  mlx = shifted | rot_bits;
+#<rotate_exit>
   V_F = 0;
   resflags(mlx);
 }
@@ -861,83 +972,100 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
 # Variable-Length Bit-Field Instructions
 #=========================================================================
 
-:CMPV eal, eab, eab_a, rlx is opcode=0xec; eal; eab; eab_a; rlx {
-  if (eab == 0) goto <size_zero>;
+#     pos.rl, size.rb, base.vb, {field.rv}, src.rl
+:CMPV eal, eab, field, rlx is opcode=0xec; eal; eab; field; rlx {
   local f:4;
-  set_field(f, eal, eab, eab_a);
-  goto <end>;
-<size_zero>
-  f = 0;
-<end>
-  cmpflags(f, rlx);
+  get_field(f, eal, eab, field, 1);
+  cmpflags(sext(f), rlx);
 }
-:CMPZV eal, eab, eab_a, rlx is opcode=0xed; eal; eab; eab_a; rlx {
-  if (eab == 0) goto <size_zero>;
+#      pos.rl, size.rb, base.vb, {field.rv}, src.rl
+:CMPZV eal, eab, field, rlx is opcode=0xed; eal; eab; field; rlx {
   local f:4;
-  set_field(f, eal, eab, eab_a);
-  goto <end>;
-<size_zero>
-  f = 0;
-<end>
-  cmpflags(f, rlx);
+  get_field(f, eal, eab, field, 0);
+  cmpflags(zext(f), rlx);
 }
 
-:EXTV eal, eab, eab_a, mlx is opcode=0xee; eal; eab; eab_a; mlx {
-  if (eab == 0) goto <size_zero>;
+:EXTV eal, eab, field, mlx is opcode=0xee; eal; eab; field; mlx {
   local f:4;
-  set_field(f, eal, eab, eab_a);
-  goto <end>;
-<size_zero>
-  f = 0;
-<end>
+  get_field(f, eal, eab, field, 1);
   mlx = f;
   resflags(f);
 }
-:EXTZV eal, eab, eab_a, mlx is opcode=0xef; eal; eab; eab_a; mlx {
-  if (eab == 0) goto <size_zero>;
+:EXTZV eal, eab, field, mlx is opcode=0xef; eal; eab; field; mlx {
   local f:4;
-  set_field(f, eal, eab, eab_a);
-  goto <end>;
-<size_zero>
-  f = 0;
-<end>
+  get_field(f, eal, eab, field, 0);
   mlx = f;
   resflags(f);
 }
 
-:FFC eal, eab, eab_a, mlx is opcode=0xeb; eal; eab; eab_a; mlx {
-  N_F = 0; V_F = 0; C_F = 0;
-  # FIXME
-}
-:FFS eal, eab, eab_a, mlx is opcode=0xea; eal; eab; eab_a; mlx {
-  N_F = 0; V_F = 0; C_F = 0;
-  # FIXME
-}
-
-:INSV eal, rlx, eab, eab_a is opcode=0xf0; eal; rlx; eab; eab_a {
+# find first clear
+#  startpos.rl, size.rb, base.vb, {field.rv}, findpos.wl
+:FFC eal, eab, field, mlx is opcode=0xeb; eal; eab; field; mlx {
+  N_F = 0; V_F = 0; C_F = 0; Z_F = 1;
+  mlx = eal;
   if (eab == 0) goto <end>;
-  # FIXME
+  local f:4;
+  get_field(f, eal, eab, field, 0);
+  find_first(mlx, f, eal, 0);
 <end>
+}
+:FFS eal, eab, field, mlx is opcode=0xea; eal; eab; field; mlx {
+  N_F = 0; V_F = 0; C_F = 0; Z_F = 1;
+  mlx = eal;
+  if (eab == 0) goto <end>;
+  local f:4;
+  get_field(f, eal, eab, field, 0);
+  find_first(mlx, f, eal, 1);
+<end>
+}
+
+# insert field
+#     src.rl, pos.rl, size.rb, base.vb
+:INSV eal, rlx, eab, field is opcode=0xf0; eal; rlx; eab; field {
+  insert_field(eal, rlx, eab, field);
 }
 
 #=========================================================================
 # Control Instructions
 #=========================================================================
 
+macro acb_i(limit, add, index, displ) {
+  index = index + add;
+  F_N = (index s< 0);
+  F_Z = (index == 0);
+  # F_V = {integer overflow}
+  if (((add s>= 0) && (index <= limit)) ||
+      ((add s< 0)  && (index >= limit)))
+    goto displ;
+}
+
+macro acb_f(limit, add, index, displ) {
+  index = index + add;
+  F_N = (index f< 0);
+  F_Z = (index == 0);
+  # F_V = {integer overflow}
+  if (((add f>= 0) && (index f<= limit)) ||
+      ((add f< 0)  && (index f>= limit)))
+    goto displ;
+}
+
+# add compare and branch
+#  limit.rx, add.rx, index.mx, displ.bw
 :ACBB eab, rbx, mbx, reladdr16 is opcode=0x9d; eab; rbx; mbx; reladdr16 {
-  mbx = mbx + rbx;
-  if (((rbx s>= 0) && (mbx <= eab)) || ((rbx s< 0) && (mbx >= eab))) goto reladdr16;
+  acb_i(eab, rbx, mbx, reladdr16);
 }
 :ACBW eaw, rwx, mwx, reladdr16 is opcode=0x3d; eaw; rwx; mwx; reladdr16 {
-  mwx = mwx + rwx;
-  if (((rwx s>= 0) && (mwx <= eaw)) || ((rwx s< 0) && (mwx >= eaw))) goto reladdr16;
+  acb_i(eaw, rwx, mwx, reladdr16);
 }
 :ACBL eal, rlx, mlx, reladdr16 is opcode=0xf1; eal; rlx; mlx; reladdr16 {
-  mlx = mlx + rlx;
-  if (((rlx s>= 0) && (mlx <= eal)) || ((rlx s< 0) && (mlx >= eal))) goto reladdr16;
+  acb_i(eal, rlx, mlx, reladdr16);
 }
-# FIXME :ACBF is opcode=0x4f
-# FIXME :ACBD is opcode=0x6f
+:ACBF eal, rlx, mlx, reladdr16 is opcode=0x4f; eal; rlx; mlx; reladdr16 {
+  acb_f(eal, rlx, mlx, reladdr16);
+}
+:ACBD eaq, rqx, mqx, reladdr16 is opcode=0x6f; eaq; rqx; mqx; reladdr16 {
+  acb_f(eaq, rqx, mqx, reladdr16);
+}
 
 :AOBLEQ eal, mlx, reladdr8 is opcode=0xf3; eal; mlx; reladdr8 {
   mlx = mlx + 1;
@@ -952,62 +1080,67 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
   if (cc) goto reladdr8;
 }
 
-:BBS eal, eab_a, reladdr8 is opcode=0xe0; eal; eab_a; reladdr8 {
+:BBS eal, field, reladdr8 is opcode=0xe0; eal; field; reladdr8 {
   local f:4;
-  set_field(f, eal, 1, eab_a);
+  get_field(f, eal, 1, field, 0);
   if (f == 1) goto reladdr8;
 }
-:BBC eal, eab_a, reladdr8 is opcode=0xe1; eal; eab_a; reladdr8 {
+:BBC eal, field, reladdr8 is opcode=0xe1; eal; field; reladdr8 {
   local f:4;
-  set_field(f, eal, 1, eab_a);
+  get_field(f, eal, 1, field, 0);
   if (f == 0) goto reladdr8;
 }
-:BBSS eal, eab_a, reladdr8 is opcode=0xe2; eal; eab_a; reladdr8 {
+
+# branch on bit (and modify)
+#     pos.rl, base.vb, displ.bb
+:BBSS eal, field, reladdr8 is opcode=0xe2; eal; field; reladdr8 {
   teststate:1 = 1;
-#  newstate:1 = 1;
+  newstate:1 = 1;
   local tmp:4;
-  set_field(tmp, eal, 1, eab_a);
+  get_field(tmp, eal, 1, field, 0); # get one bit, unsigned
+  insert_field(newstate, eal, 1, field);
   # FIXME write field
   if (tmp:1 == teststate) goto reladdr8;
 }
-:BBCS eal, eab_a, reladdr8 is opcode=0xe3; eal; eab_a; reladdr8 {
+:BBCS eal, field, reladdr8 is opcode=0xe3; eal; field; reladdr8 {
   teststate:1 = 0;
-#  newstate:1 = 1;
+  newstate:1 = 1;
   local tmp:4;
-  set_field(tmp, eal, 1, eab_a);
-  # FIXME write field
+  get_field(tmp, eal, 1, field, 0);
+  insert_field(newstate, eal, 1, field);
   if (tmp:1 == teststate) goto reladdr8;
 }
-:BBSC eal, eab_a, reladdr8 is opcode=0xe4; eal; eab_a; reladdr8 {
+:BBSC eal, field, reladdr8 is opcode=0xe4; eal; field; reladdr8 {
   teststate:1 = 1;
-#  newstate:1 = 0;
+  newstate:1 = 0;
   local tmp:4;
-  set_field(tmp, eal, 1, eab_a);
-  # FIXME write field
+  get_field(tmp, eal, 1, field, 0);
+  insert_field(newstate, eal, 1, field);
   if (tmp:1 == teststate) goto reladdr8;
 }
-:BBCC eal, eab_a, reladdr8 is opcode=0xe5; eal; eab_a; reladdr8 {
+:BBCC eal, field, reladdr8 is opcode=0xe5; eal; field; reladdr8 {
   teststate:1 = 0;
-#  newstate:1 = 0;
+  newstate:1 = 0;
   local tmp:4;
-  set_field(tmp, eal, 1, eab_a);
-  # FIXME write field
+  get_field(tmp, eal, 1, field, 0);
+  insert_field(newstate, eal, 1, field);
   if (tmp:1 == teststate) goto reladdr8;
 }
-:BBSSI eal, eab_a, reladdr8 is opcode=0xe6; eal; eab_a; reladdr8 {
+# branch on bit (interlocked)
+:BBSSI eal, field, reladdr8 is opcode=0xe6; eal; field; reladdr8 {
   teststate:1 = 1;
-#  newstate:1 = 1;
+  newstate:1 = 1;
   local tmp:4;
-  set_field(tmp, eal, 1, eab_a);
-  # FIXME write field
+  get_field(tmp, eal, 1, field, 0);
+  insert_field(newstate, eal, 1, field);
   if (tmp:1 == teststate) goto reladdr8;
 }
-:BBCCI eal, eab_a, reladdr8 is opcode=0xe7; eal; eab_a; reladdr8 {
+:BBCCI eal, field, reladdr8 is opcode=0xe7; eal; field; reladdr8 {
   teststate:1 = 0;
-#  newstate:1 = 0;
+  newstate:1 = 0;
   local tmp:4;
-  set_field(tmp, eal, 1, eab_a);
-  # FIXME write field
+  get_field(tmp, eal, 1, field, 0);
+  insert_field(newstate, eal, 1, field);
   if (tmp:1 == teststate) goto reladdr8;
 }
 
@@ -1035,9 +1168,10 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
 :BSBW reladdr16 is opcode=0x30; reladdr16 {
   ptr:4 = inst_next;
   push(ptr);
-  call [reladdr16];
+  call reladdr16;
 }
 
+# switch/case with jump table
 :CASEB eab, rbx, rbx2 is opcode=0x8f; eab; rbx; rbx2 {
   local tmp = eab - rbx; # offset into jump table (of words)
   if (tmp > rbx2) goto <not_lequ>; # unsigned compare !, also break out here if tmp is 'negative'
@@ -1096,8 +1230,10 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
   goto [eab_a];
 }
 
+# return from subroutine
 :RSB is opcode=0x05 { pop(PC); return [PC]; }
 
+# subtract one and branch CC
 :SOBGEQ mlx, reladdr8 is opcode=0xf4; mlx; reladdr8 {
   mlx = mlx - 1;
   resflags(mlx);
@@ -1115,14 +1251,43 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
   if (mlx s> 0) goto reladdr8;
 }
 
+#=========================================================================
+# Procedure-Call Instructions
+#=========================================================================
+
+# call with general argument list
+#      arglist.ab, dst.ab
 :CALLG eab_a, eab_a2 is opcode=0xfa; eab_a; eab_a2 {
   ptr:4 = eab_a2 + 2;
   # FIXME
   call [ptr];
 }
+# call with stack argument list
+#      numarg.rl, dst.ab
 :CALLS eal, eab_a is opcode=0xfb; eal; eab_a {
-  ptr:4 = eab_a + 2;
-  # FIXME
+  local tmp2:2 = *:2 eab_a;
+  push(eal);
+  local tmp1:4 = 0; #SP;
+  SP = SP & (~0x03); # longword-align SP
+  local mask:2 = 0b10000000000;
+  local rptr:4 = 0; #&R11;
+<calls_loop>
+  if ((tmp2 & mask) == 0) goto <skip_push>;
+  local r:4 = *[register]rptr;
+  push(r);
+<skip_push>
+  rptr = rptr - 4;
+  mask = mask >> 1;
+  if (mask != 0) goto <calls_loop>;
+  push(PC);
+  push(FP);
+  push(AP);
+  N_F = 0; Z_F = 0; V_F = 0; C_F = 0;
+  push((tmp1 & 0x03) | 0x04:4 | ((zext(tmp2) & 0b111111111111:4) << 4)); # FIMXE PSW[14:5]
+  push(0:4);
+  FP = SP;
+  AP = tmp1;
+  local ptr:4 = eab_a + 2;
   call [ptr];
 }
 :RET is opcode=0x04 {
@@ -1135,12 +1300,18 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
 #=========================================================================
 
 # FIXME unpack/pack from condition flags
+# bit clear/set PSW
 :BICPSW eaw is opcode=0xb9; eaw { PSW = PSW & ~eaw; }
 :BISPSW eaw is opcode=0xb8; eaw { PSW = PSW | eaw; }
 
+# breakpoint
 :BPT is opcode=0x03 unimpl
+
+# halt
 :HALT is opcode=0x00 { goto inst_start; }
 
+# compute index
+#  subscript.rl, low.rl, high.rl, size.rl, indexin.rl, indexout.wl
 :INDEX eal, rlx, rlx2, rlx3, rlx4, mlx is opcode=0x0a; eal; rlx; rlx2; rlx3; rlx4; mlx {
   mlx = (rlx4 + eal) * rlx3;
   if ((eal s< rlx) || (eal > rlx2)) goto <end>;
@@ -1248,6 +1419,7 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
 <no_r0>
 }
 
+# user-defined extensions
 :XFC is opcode=0xfc unimpl
 
 #=========================================================================
@@ -1485,12 +1657,251 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
 #=========================================================================
 # FIXME
 
-:CMPC3 rwx, eab_a, eab_a2 is opcode=0x29; rwx; eab_a; eab_a2 unimpl
-:CMPC5 rwx, eab_a, eab, rwx2, eab_a2 is opcode=0x2d; rwx; eab_a; eab; rwx2; eab_a2 unimpl
-:LOCC eab, eaw, eab_a is opcode=0x3a; eab; eaw; eab_a unimpl
-:MATCHC rwx, eab_a, rwx2, eab_a2 is opcode=0x39; rwx; eab_a; rwx2; eab_a2 unimpl
-:MOVC3 rwx, eab_a, eab_a2 is opcode=0x28; rwx; eab_a; eab_a2 unimpl
-:MOVC5 rwx, eab_a, eab, rwx2, eab_a2 is opcode=0x2c; rwx; eab_a; eab; rwx2; eab_a2 unimpl
+# compare characters
+#  len.rw, src1addr.ab, src2addr.ab {R0-3.wl}
+:CMPC3 rwx, eab_a, eab_a2 is opcode=0x29; rwx; eab_a; eab_a2 {
+  local tmp1 = rwx; # length
+  local tmp2 = eab_a; # source 1
+  local tmp4 = eab_a2; # source 2
+  local tmpa:1 = 0; # compare regs
+  local tmpb:1 = 0;
+<while_loop>
+  if (tmp1 == 0) goto <match>;
+  tmpa = *:1 tmp2; # src 1 char
+  tmpb = *:1 tmp4; # src 2 char
+  if (tmpa != tmpb) goto <nomatch>;
+  tmp1 = tmp1 - 1;
+  tmp2 = tmp2 + 1;
+  tmp4 = tmp4 + 1;
+  goto <while_loop>;
+<nomatch>
+  Z_F = 0;
+  N_F = (tmpa s< tmpb);
+  C_F = (tmpa < tmpb);
+  goto <while_end>;
+<match>
+  Z_F = 1;
+  N_F = 0;
+  C_F = 0;
+<while_end>
+  R0 = zext(tmp1);
+  R1 = tmp2;
+  R2 = zext(tmp1);
+  R3 = tmp4;
+}
+
+#  src1len.rw, src1addr.ab, fill.rb, src2len.rw, src2addr.ab {R0-3.wl}
+:CMPC5 rwx, eab_a, eab, rwx2, eab_a2 is opcode=0x2d; rwx; eab_a; eab; rwx2; eab_a2 {
+  local tmp1 = rwx; # src1len
+  local tmp2 = eab_a; # src1addr
+  local tmp3 = rwx2; # src2len
+  local tmp4 = eab_a2; # src2addr
+  local tmpa:1 = 0; # compare regs
+  local tmpb:1 = 0;
+<while_loop>
+  if ((tmp1 == 0) && (tmp3 == 0)) goto <match>;
+  if (tmp1 == 0) goto <src1_zero>;
+  tmpa = *:1 tmp2;
+  goto <check_src2>;
+<src1_zero>
+  tmpa = eab:1; # fill
+<check_src2>
+  if (tmp3 == 0) goto <src2_zero>;
+  tmpb = *:1 tmp4;
+  goto <check>;
+<src2_zero>
+  tmpb = eab:1; # fill
+<check>
+  if (tmpa != tmpb) goto <nomatch>;
+  Z_F = 1;
+  if (tmp1 == 0) goto <no_inc_src1>;
+  tmp1 = tmp1 - 1; tmp2 = tmp2 + 1;
+<no_inc_src1>
+  if (tmp3 == 0) goto <while_loop>;
+  tmp3 = tmp3 - 1; tmp4 = tmp4 + 1;
+  goto <while_loop>;
+<nomatch>
+  Z_F = 0;
+  N_F = (tmpa s< tmpb);
+  C_F = (tmpa < tmpb);#
+  goto <while_end>;
+<match>
+  Z_F = 1;
+  N_F = 0;
+  C_F = 0;
+<while_end>
+  R0 = zext(tmp1);
+  R1 = tmp2;
+  R2 = zext(tmp3);
+  R3 = tmp4;
+}
+
+# locate character
+#    char.rb, len.rw, addr.ab
+:LOCC eab, eaw, eab_a is opcode=0x3a; eab; eaw; eab_a {
+  local tmp1:2 = eaw;
+  local tmp2 = eab_a;
+<while_loop>
+  if (tmp1 > 0) goto <while_cont>;
+  goto <while_end>;
+<while_cont>
+  local char = *:1 tmp2;
+  if (char == eab) goto <while_end>;
+  tmp1 = tmp1 - 1;
+  tmp2 = tmp2 + 1;
+  goto <while_loop>;
+<while_end>
+  Z_F = (tmp1 != 0);
+  R0 = zext(tmp1);
+  R1 = tmp2;
+}
+
+# match characters
+#   objlen.rw, objaddr.ab, srclen.rw, srcaddr.ab
+:MATCHC rwx, eab_a, rwx2, eab_a2 is opcode=0x39; rwx; eab_a; rwx2; eab_a2 {
+  local tmp1 = rwx;
+  local tmp2 = eab_a;
+  local tmp3 = rwx2;
+  local tmp4 = eab_a2;
+  local tmp5 = tmp1;
+<while_loop>
+  if (tmp1 == 0) goto <while_end>;
+  if (tmp3 < tmp1) goto <while_end>;
+  if (tmp2 != tmp4) goto <matchc_else>;
+  tmp1 = tmp1 - 1;
+  tmp2 = tmp2 + 1;
+  tmp3 = tmp3 - 1;
+  tmp4 = tmp4 + 1;
+  goto <while_loop>;
+<matchc_else>
+  tmp2 = tmp2 - zext(tmp5 - tmp1);
+  tmp3 = (tmp3 - 1) + (tmp5 - tmp1);
+  tmp4 = (tmp4 + 1) - zext(tmp5 - tmp1);
+  tmp1 = tmp5;
+  goto <while_loop>;
+<while_end>
+  if (tmp3 >= tmp1) goto <matchc_exit>;
+  tmp4 = tmp4 + zext(tmp3);
+  tmp3 = 0;
+<matchc_exit>
+  Z_F = (tmp1 == 0);
+  N_F = 0;
+  V_F = 0;
+  C_F = 0;
+  R0 = zext(tmp1);
+  R1 = tmp2;
+  R2 = zext(tmp3);
+  R3 = tmp4;
+}
+
+# move characters
+#  len.rw, srcaddr.ab, dstaddr.ab
+:MOVC3 rwx, eab_a, eab_a2 is opcode=0x28; rwx; eab_a; eab_a2 {
+  local tmp1 = rwx;
+  local tmp2 = eab_a;
+  local tmp3 = eab_a2;
+  if (tmp2 <= tmp3) goto <movc3_else>;
+<first_while>
+  if (tmp1 == 0) goto <first_while_done>;
+  *:1 tmp3 = *:1 tmp2;
+  tmp1 = tmp1 - 1;
+  tmp2 = tmp2 + 1;
+  tmp3 = tmp3 + 1;
+  goto <first_while>;
+<first_while_done>
+  R1 = tmp2;
+  R3 = tmp3;
+  goto <end_movc3>;
+<movc3_else>
+  local tmp4 = tmp1;
+  tmp2 = tmp2 + zext(tmp1);
+  tmp3 = tmp3 + zext(tmp1);
+<second_while>
+  if (tmp1 == 0) goto <second_while_done>;
+  tmp1 = tmp1 - 1;
+  tmp2 = tmp2 - 1;
+  tmp3 = tmp3 - 1;
+  *:1 tmp3 = *:1 tmp2;
+  goto <second_while>;
+<second_while_done>
+  R1 = tmp2 + zext(tmp4);
+  R2 = tmp3 + zext(tmp4);
+<end_movc3>
+  R0 = 0;
+  R2 = 0;
+  R4 = 0;
+  R5 = 0;
+  N_F = 0;
+  Z_F = 1;
+  V_F = 0;
+  C_F = 0;
+}
+
+#  srclen.rw, srcaddr.ab, fill.rb, dstlen.rw, dstaddr.ab
+:MOVC5 rwx, eab_a, eab, rwx2, eab_a2 is opcode=0x2c; rwx; eab_a; eab; rwx2; eab_a2 {
+  local tmp1 = rwx;
+  local tmp2 = eab_a;
+  local tmp3 = rwx2;
+  local tmp4 = eab_a2;
+  if (tmp2 <= tmp4) goto <movc5_else>;
+<first_while>
+  if (tmp1 == 0) goto <second_while>;
+  if (tmp3 == 0) goto <second_while>;
+  *:1 tmp4 = *:1 tmp2;
+  tmp1 = tmp1 - 1;
+  tmp2 = tmp2 + 1;
+  tmp3 = tmp3 - 1;
+  tmp4 = tmp4 + 1;
+  goto <first_while>;
+<second_while>
+  if (tmp3 == 0) goto <second_while_done>;
+  *:1 tmp4 = eab;
+  tmp3 = tmp3 - 1;
+  tmp4 = tmp4 + 1;
+  goto <second_while>;
+<second_while_done>
+  R1 = tmp2;
+  R3 = tmp4;
+  goto <end_movc5>;
+<movc5_else>
+  local tmp5:2;
+  if (tmp1 < tmp3) goto <tmp1_min>;
+  tmp5 = tmp3;
+  goto <tmp5_min>;
+<tmp1_min>
+  tmp5 = tmp1;
+<tmp5_min>
+  local tmp6 = tmp3;
+  tmp2 = tmp2 + zext(tmp5);
+  tmp4 = tmp4 + zext(tmp6);
+<third_while>
+  if (tmp3 <= tmp1) goto <fourth_while>;
+  tmp3 = tmp3 - 1;
+  tmp4 = tmp4 - 1;
+  *:1 tmp4 = eab;
+  goto <third_while>;
+<fourth_while>
+  if (tmp3 == 0) goto <fourth_while_done>;
+  tmp1 = tmp1 - 1;
+  tmp2 = tmp2 - 1;
+  tmp3 = tmp3 - 1;
+  tmp4 = tmp4 - 1;
+  *:1 tmp4 = *:1 tmp2;
+  goto <fourth_while>;
+<fourth_while_done>
+  R1 = tmp2 + zext(tmp5);
+  R2 = tmp4 + zext(tmp6);
+<end_movc5>
+  R0 = zext(tmp1);
+  R2 = 0;
+  R4 = 0;
+  R5 = 0;
+  N_F = (rwx s< rwx2);
+  Z_F = (rwx == rwx2);
+  V_F = 0;
+  C_F = (rwx < rwx2);
+}
+
 :MOVTC rwx, eab_a, eab, eab_a2, rwx2, eab_a3 is opcode=0x2e; rwx; eab_a; eab; eab_a2; rwx2; eab_a3 unimpl
 :MOVTUC rwx, eab_a, eab, eab_a2, rwx2, eab_a3 is opcode=0x2f; rwx; eab_a; eab; eab_a2; rwx2; eab_a3 unimpl
 :SCANC rwx, eab_a, eab_a2, rbx is opcode=0x2a; rwx; eab_a; eab_a2; rbx unimpl
@@ -1569,12 +1980,15 @@ eab_a3: eab_a is eab_a { tmp = eab_a; export tmp; }
 :LDPCTX is opcode=0x06 unimpl
 :SVPCTX is opcode=0x07 unimpl
 
+procreg: preg is preg67 = 0 & preg { local tmp:4 = &preg; export tmp; }
+procreg: eal is eal { local proff:4 = &KSP + eal; export proff; }
+
 # move to processor register
 :MTPR rlx, procreg is opcode=0xda; rlx; procreg {
-  procreg = rlx;
-}
-# move from processor register
-:MFPR procreg, mlx is opcode=0xdb; procreg; mlx {
-  mlx = procreg;
+  *[register]procreg = rlx;
 }
 
+# move from processor register
+:MFPR procreg, mlx is opcode=0xdb; procreg; mlx {
+  mlx = *[register]procreg;
+}
