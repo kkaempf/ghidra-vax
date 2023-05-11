@@ -290,7 +290,7 @@ eab: (reg)+ is mode=8 & reg [ off = off + 1; ] { ptr = reg; reg = reg + 1; expor
 #   8: immediate mode
 # eab_a doesn't make sense
 #  increase off to compensate for addrmode and simm8 byte
-eab: "I^#"^simm8 is mode=8 & reg=15; simm8 [ off = off + 2; ] { export simm8; } 
+eab: "I^#"^simm8 is mode=8 & reg=15; simm8 [ off = off + 2; ] { export *[const]:1 simm8; } 
 #   9: auto increment deferred
 eab_a: @(reg)+ is mode=9 & reg [ off = off + 1; ] { tmp:4 = *:4 reg; reg = reg + 4; export tmp; }
 eab: @(reg)+ is mode=9 & reg [ off = off + 1; ] { tmp:4 = *:4 reg; reg = reg + 4; export *:1 tmp; }
@@ -341,7 +341,7 @@ eaw: reg is mode=5 & reg [ off = off + 1; ] { tmp:2 = reg:2; export tmp; }
 eaw: (reg) is mode=6 & reg [ off = off + 1; ] { export *:2 reg; }
 eaw: -(reg) is mode=7 & reg [ off = off + 1; ] { reg = reg - 2; export *:2 reg; }
 eaw: (reg)+ is mode=8 & reg [ off = off + 1; ] { ptr = reg; reg = reg + 2; export *:2 ptr; }
-eaw: "I^#"^simm16 is mode=8 & reg=15; simm16 [ off = off + 1 + 2; ] { export simm16; } 
+eaw: "I^#"^simm16 is mode=8 & reg=15; simm16 [ off = off + 1 + 2; ] { export *[const]:2 simm16; } 
 eaw: @(reg)+ is mode=9 & reg [ off = off + 1; ] { tmp:4 = *:4 reg; reg = reg + 4; export *:2 tmp; }
 eaw: "@#"^simm32 is mode=9 & reg=15; simm32 [ off = off + 1 + 4; ] { ptr:4 = simm32; tmp = *:4 ptr; export *:2 tmp; }
 eaw: "B^"^simm8(reg) is mode=10 & reg; simm8 [ off = off + 2; ] { ptr = reg + simm8; export *:2 ptr; }
@@ -381,10 +381,10 @@ eaw_a: "@L^"^reladdr32 is mode=15 & reg=15; reladdr32 [ off = off + 1; ] { ptr =
 #  long
 eal: "S^#"^litval is mode67=0 & litval [ off = off + 1; ] { export *[const]:4 litval; }
 eal: reg is mode=5 & reg [ off = off + 1; ] { export reg; }
-eal: (reg) is mode=6 & reg [ off = off + 1; ] { export *reg; }
-eal: -(reg) is mode=7 & reg [ off = off + 1; ] { reg = reg - 4; export *reg; }
-eal: (reg)+ is mode=8 & reg [ off = off + 1; ] { ptr = reg; reg = reg + 4; export *ptr; }
-eal: "I^#"^simm32 is mode=8 & reg=15; simm32 [ off = off + 1 + 4; ] { export simm32; } 
+eal: (reg) is mode=6 & reg [ off = off + 1; ] { export *:4 reg; }
+eal: -(reg) is mode=7 & reg [ off = off + 1; ] { reg = reg - 4; export *:4 reg; }
+eal: (reg)+ is mode=8 & reg [ off = off + 1; ] { ptr = reg; reg = reg + 4; export *:4 ptr; }
+eal: "I^#"^simm32 is mode=8 & reg=15; simm32 [ off = off + 1 + 4; ] { export *[const]:4 simm32; } 
 eal: @(reg)+ is mode=9 & reg [ off = off + 1; ] { tmp:4 = *:4 reg; reg = reg + 4; export *:4 tmp; }
 eal: "@#"^simm32 is mode=9 & reg=15; simm32 [ off = off + 1 + 4; ] { ptr:4 = simm32; tmp = *:4 ptr; export *:4 tmp; }
 eal: "B^"^simm8(reg) is mode=10 & reg; simm8 [ off = off + 2; ] { ptr = reg + simm8; export *:4 ptr; }
@@ -434,7 +434,7 @@ eaq: reg is mode=5 & reg {
 eaq: (reg) is mode=6 & reg [ off = off + 1; ] { export *:8 reg; }
 eaq: -(reg) is mode=7 & reg [ off = off + 1; ] { reg = reg - 8; export *:8 reg; }
 eaq: (reg)+ is mode=8 & reg [ off = off + 1; ] { ptr = reg; reg = reg + 8; export *:8 ptr; }
-eaq: "I^#"^simm64 is mode=8 & reg=15; simm64 [ off = off + 1 + 4; ] { export simm64; } 
+eaq: "I^#"^simm64 is mode=8 & reg=15; simm64 [ off = off + 1 + 4; ] { export *[const]:8 simm64; } 
 eaq: @(reg)+ is mode=9 & reg [ off = off + 1; ] { tmp:4 = *:4 reg; reg = reg + 8; export *:8 tmp; }
 eaq: "@#"^simm32 is mode=9 & reg=15; simm32 [ off = off + 1 + 4; ] { ptr:4 = simm32; tmp = *:4 ptr; export *:8 tmp; }
 eaq: "B^"^simm8(reg) is mode=10 & reg; simm8 [ off = off + 2; ] { ptr = reg + simm8; export *:8 ptr; }
