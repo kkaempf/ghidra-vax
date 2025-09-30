@@ -312,11 +312,11 @@ attach variables [ preg ] [ KSP   ESP   SSP   USP   ISP   PRx05 PRx06 PRx07
 #--------------------------------------------------------------------------
 # Tables
 
-reladdr8: loc is simm8  [ loc = inst_start + operand_offset + 1 + simm8; ] { export *[ram]:4 loc; }
+reladdr8:  loc is simm8   [ loc = inst_start + operand_offset + 1 + simm8; ]  { export *[ram]:4 loc; }
 reladdr16: loc is simm16  [ loc = inst_start + operand_offset + 2 + simm16; ] { export *[ram]:4 loc; }
 reladdr32: loc is simm32  [ loc = inst_start + operand_offset + 4 + simm32; ] { export *[ram]:4 loc; }
 
-offset8: loc is simm8 [ loc = 0 + simm8; ] { export *[const]:1 loc; }
+offset8:  loc is simm8  [ loc = 0 + simm8; ]  { export *[const]:1 loc; }
 offset16: loc is simm16 [ loc = 0 + simm16; ] { export *[const]:2 loc; }
 offset32: loc is simm32 [ loc = 0 + simm32; ] { export *[const]:4 loc; }
 
