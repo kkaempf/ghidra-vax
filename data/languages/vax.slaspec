@@ -673,9 +673,9 @@ field: eab_a is eab_a { export eab_a; }
 
 # bit test
 #      mask.rb, src.rb
-:BITB2 eab, rbx is opcode=0x93; eab; rbx { tmp:1 = rbx & eab; resflags(tmp); V_F = 0; }
-:BITW2 eaw, rwx is opcode=0xb3; eaw; rwx { tmp:2 = rwx & eaw; resflags(tmp); V_F = 0; }
-:BITL2 eal, rlx is opcode=0xd3; eal; rlx { tmp:4 = rlx & eal; resflags(tmp); V_F = 0; }
+:BITB  eab, rbx is opcode=0x93; eab; rbx { tmp:1 = rbx & eab; resflags(tmp); V_F = 0; }
+:BITW  eaw, rwx is opcode=0xb3; eaw; rwx { tmp:2 = rwx & eaw; resflags(tmp); V_F = 0; }
+:BITL  eal, rlx is opcode=0xd3; eal; rlx { tmp:4 = rlx & eal; resflags(tmp); V_F = 0; }
 
 # clear
 :CLRB eab is opcode=0x94; eab { eab = 0; N_F = 0; Z_F = 1; V_F = 1; }
