@@ -133,7 +133,7 @@ macro get_field(f, pos, size, addr, signed_flag) {
   # compute bit position (0..7)
   bitpos = bitpos & 0x07;
   # compute byte position
-  local ptr:4 = addr + sext(pos[3,29]); # 29 bits, counting from 3
+  local ptr:4 = addr + pos[3,29]; # 29 bits, counting from 3
   tmp = *:8 ptr;
   goto <extract_from_tmp>;
 <in_register>
@@ -169,7 +169,7 @@ macro insert_field(src, pos, size, addr) {
   # compute bit position (0..7)
   bitpos = bitpos & 0x07;
   # compute byte position
-  local ptr:4 = addr + sext(pos[3,29]); # 29 bits, counting from 3
+  local ptr:4 = addr + pos[3,29]; # 29 bits, counting from 3
   local rptr:4 = 0; # register ptr
   tmp = *:8 ptr;
   goto <insert_to_tmp>;
