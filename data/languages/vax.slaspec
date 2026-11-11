@@ -976,13 +976,13 @@ field: eab_a is eab_a { export eab_a; }
 :CMPV eal, eab, field, rlx is opcode=0xec; eal; eab; field; rlx {
   local f:4;
   get_field(f, eal, eab, field, 1);
-  cmpflags(sext(f), rlx);
+  cmpflags(f, rlx);
 }
 #      pos.rl, size.rb, base.vb, {field.rv}, src.rl
 :CMPZV eal, eab, field, rlx is opcode=0xed; eal; eab; field; rlx {
   local f:4;
   get_field(f, eal, eab, field, 0);
-  cmpflags(zext(f), rlx);
+  cmpflags(f, rlx);
 }
 
 :EXTV eal, eab, field, mlx is opcode=0xee; eal; eab; field; mlx {
