@@ -1,0 +1,4 @@
+# rw, oab, rb, rw2, oab2
+# test oab for immediate
+# MOVC5 S^#0x0,I^#0x0,S^#0x0,S^#0x10,W^0x106(R11)
+2c 00 8f 00 00 10 cb 06 01
