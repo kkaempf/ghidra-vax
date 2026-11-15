@@ -6,9 +6,9 @@ TMPDIR="."
 for i in $@; do \
   echo -n "$i "; \
   j=$(basename $i .hex); \
-  hex=$(tr -d " \n" < $i); \
+  hex=$(grep -v ^\# $i | tr -d " \n"); \
   asm=$j.out; \
-  $(sleigh-lift disassemble vax.sla $hex > $asm); \
+  $(sleigh-lift disassemble `pwd`/../data/languages/vax.sla $hex > $asm); \
   diff -wu $j.asm $asm; \
   if [ $? -ne 0 ]; then \
     echo "fail"; \
