@@ -57,6 +57,10 @@ tests/mcoml.asm||LICENSE||||END|
 tests/mcoml.hex||LICENSE||||END|
 tests/mfpr_2a.asm||LICENSE||||END|
 tests/mfpr_2a.hex||LICENSE||||END|
+tests/mfpr-immediate-20080000.asm||LICENSE||||END|
+tests/mfpr-immediate-20080000.hex||LICENSE||||END|
+tests/mfpr-PRx2b-20080000.asm||LICENSE||||END|
+tests/mfpr-PRx2b-20080000.hex||LICENSE||||END|
 tests/movab.asm||LICENSE||||END|
 tests/movab.hex||LICENSE||||END|
 tests/movc5-srcaddr-immediate.asm||LICENSE||||END|
