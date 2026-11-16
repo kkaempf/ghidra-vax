@@ -48,6 +48,8 @@ tests/extzv.asm||LICENSE||||END|
 tests/extzv.hex||LICENSE||||END|
 tests/jmp.asm||LICENSE||||END|
 tests/jmp.hex||LICENSE||||END|
+tests/jsb-long-relative.asm||LICENSE||||END|
+tests/jsb-long-relative.hex||LICENSE||||END|
 tests/Makefile||LICENSE||||END|
 tests/mcoml_2.asm||LICENSE||||END|
 tests/mcoml_2.hex||LICENSE||||END|
