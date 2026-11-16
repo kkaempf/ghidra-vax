@@ -44,6 +44,8 @@ tests/caseb.asm||LICENSE||||END|
 tests/caseb.hex||LICENSE||||END|
 tests/cmpzv.asm||LICENSE||||END|
 tests/cmpzv.hex||LICENSE||||END|
+tests/extzv.asm||LICENSE||||END|
+tests/extzv.hex||LICENSE||||END|
 tests/jmp.asm||LICENSE||||END|
 tests/jmp.hex||LICENSE||||END|
 tests/Makefile||LICENSE||||END|
