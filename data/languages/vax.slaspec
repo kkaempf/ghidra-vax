@@ -333,10 +333,11 @@ reladdr8:  loc is simm8   [ loc = inst_start + operand_offset + 1 + simm8; ]  { 
 reladdr16: loc is simm16  [ loc = inst_start + operand_offset + 2 + simm16; ] { export *[ram]:4 loc; }
 reladdr32: loc is simm32  [ loc = inst_start + operand_offset + 4 + simm32; ] { export *[ram]:4 loc; }
 
-offset8:  simm8  is simm8  { export *[const]:1 simm8; }
-offset16: simm16 is simm16 { export *[const]:2 simm16; }
-offset32: simm32 is simm32 { export *[const]:4 simm32; }
-offset64: simm64 is simm64 { export *[const]:8 simm64; }
+# immediate values
+immb: simm8  is simm8  { export *[const]:1 simm8; }
+immw: simm16 is simm16 { export *[const]:2 simm16; }
+imml: simm32 is simm32 { export *[const]:4 simm32; }
+immq: simm64 is simm64 { export *[const]:8 simm64; }
 
 # condition codes (for branch)
 
@@ -409,14 +410,14 @@ oal: (reg)+ is mode=8 & reg { local oa:4 = reg; reg = reg + 4; export oa; }
 oaq: (reg)+ is mode=8 & reg { local oa:4 = reg; reg = reg + 8; export oa; }
 
 #   8: immediate mode (reg == PC)
-rb: "I^#"^offset8  is mode=8 & reg=15; offset8  { export offset8; }
-rsb: "I^#"^offset8 is mode=8 & reg=15; offset8  { export offset8; }
-rw: "I^#"^offset16 is mode=8 & reg=15; offset16 { export offset16; }
-rl: "I^#"^offset32 is mode=8 & reg=15; offset32 { export offset32; }
-rq: "I^#"^offset64 is mode=8 & reg=15; offset64 { export offset64; }
-oab: "I^#"^offset8  is mode=8 & reg=15; offset8  { local val:4 = sext(offset8);  export val; }
-oaw: "I^#"^offset16 is mode=8 & reg=15; offset16 { local val:4 = sext(offset16); export val; }
-oal: "I^#"^offset32 is mode=8 & reg=15; offset32 {                               export offset32; }
+rb: "I^#"^immb  is mode=8 & reg=15; immb { export immb; }
+rsb: "I^#"^immb is mode=8 & reg=15; immb { export immb; }
+rw: "I^#"^immw  is mode=8 & reg=15; immw { export immw; }
+rl: "I^#"^imml  is mode=8 & reg=15; imml { export imml; }
+rq: "I^#"^immq  is mode=8 & reg=15; immq { export immq; }
+oab: "I^#"^immb is mode=8 & reg=15; immb { local val:4 = sext(immb); export val; }
+oaw: "I^#"^immw is mode=8 & reg=15; immw { local val:4 = sext(immw); export val; }
+oal: "I^#"^imml is mode=8 & reg=15; imml {                           export imml; }
 # oaq missing
 
 # 9: autoincrement, deferred
@@ -440,14 +441,14 @@ oal: "@#"^simm32 is mode=9 & reg=15; simm32 { local oa:4 = simm32; export oa; }
 oaq: "@#"^simm32 is mode=9 & reg=15; simm32 { local oa:4 = simm32; export oa; }
 
 #   10: byte displacement
-rb: "B^"^offset8(reg) is mode=10 & reg; offset8 { local oa:4 = reg + sext(offset8); local val:1; mem_bread(val, oa); export val; }
-rw: "B^"^offset8(reg) is mode=10 & reg; offset8 { local oa:4 = reg + sext(offset8); local val:2; mem_wread(val, oa); export val; }
-rl: "B^"^offset8(reg) is mode=10 & reg; offset8 { local oa:4 = reg + sext(offset8); local val:4; mem_lread(val, oa); export val; }
-rq: "B^"^offset8(reg) is mode=10 & reg; offset8 { local oa:4 = reg + sext(offset8); local val:8; mem_qread(val, oa); export val; }
-oab: "B^"^offset8(reg) is mode=10 & reg; offset8 { local oa:4 = reg + sext(offset8); export oa; }
-oaw: "B^"^offset8(reg) is mode=10 & reg; offset8 { local oa:4 = reg + sext(offset8); export oa; }
-oal: "B^"^offset8(reg) is mode=10 & reg; offset8 { local oa:4 = reg + sext(offset8); export oa; }
-oaq: "B^"^offset8(reg) is mode=10 & reg; offset8 { local oa:4 = reg + sext(offset8); export oa; }
+rb: "B^"^immb(reg) is mode=10 & reg; immb { local oa:4 = reg + sext(immb); local val:1; mem_bread(val, oa); export val; }
+rw: "B^"^immb(reg) is mode=10 & reg; immb { local oa:4 = reg + sext(immb); local val:2; mem_wread(val, oa); export val; }
+rl: "B^"^immb(reg) is mode=10 & reg; immb { local oa:4 = reg + sext(immb); local val:4; mem_lread(val, oa); export val; }
+rq: "B^"^immb(reg) is mode=10 & reg; immb { local oa:4 = reg + sext(immb); local val:8; mem_qread(val, oa); export val; }
+oab: "B^"^immb(reg) is mode=10 & reg; immb { local oa:4 = reg + sext(immb); export oa; }
+oaw: "B^"^immb(reg) is mode=10 & reg; immb { local oa:4 = reg + sext(immb); export oa; }
+oal: "B^"^immb(reg) is mode=10 & reg; immb { local oa:4 = reg + sext(immb); export oa; }
+oaq: "B^"^immb(reg) is mode=10 & reg; immb { local oa:4 = reg + sext(immb); export oa; }
 
 #   10: byte relative
 rb: "B^"^reladdr8 is mode=10 & reg=15; reladdr8 { local val:1; mem_bread(val, reladdr8); export val; }
@@ -460,14 +461,14 @@ oal: "B^"^reladdr8 is mode=10 & reg=15; reladdr8 { local oa:4 = reladdr8; export
 oaq: "B^"^reladdr8 is mode=10 & reg=15; reladdr8 { local oa:4 = reladdr8; export oa; }
 
 #   11: byte displacement deferred
-rb: "@B^"^offset8(reg) is mode=11 & reg; offset8 { local addr:4 = reg + sext(offset8); local oa:4; mem_lread(oa, addr); local val:1; mem_bread(val, oa); export val; }
-rw: "@B^"^offset8(reg) is mode=11 & reg; offset8 { local addr:4 = reg + sext(offset8); local oa:4; mem_lread(oa, addr); local val:2; mem_wread(val, oa); export val; }
-rl: "@B^"^offset8(reg) is mode=11 & reg; offset8 { local addr:4 = reg + sext(offset8); local oa:4; mem_lread(oa, addr); local val:4; mem_lread(val, oa); export val; }
-rq: "@B^"^offset8(reg) is mode=11 & reg; offset8 { local addr:4 = reg + sext(offset8); local oa:4; mem_lread(oa, addr); local val:8; mem_qread(val, oa); export val; }
-oab: "@B^"^offset8(reg) is mode=11 & reg; offset8 { local addr:4 = reg + sext(offset8); local oa:4; mem_lread(oa, addr); export oa; }
-oaw: "@B^"^offset8(reg) is mode=11 & reg; offset8 { local addr:4 = reg + sext(offset8); local oa:4; mem_lread(oa, addr); export oa; }
-oal: "@B^"^offset8(reg) is mode=11 & reg; offset8 { local addr:4 = reg + sext(offset8); local oa:4; mem_lread(oa, addr); export oa; }
-oaq: "@B^"^offset8(reg) is mode=11 & reg; offset8 { local addr:4 = reg + sext(offset8); local oa:4; mem_lread(oa, addr); export oa; }
+rb: "@B^"^immb(reg) is mode=11 & reg; immb { local addr:4 = reg + sext(immb); local oa:4; mem_lread(oa, addr); local val:1; mem_bread(val, oa); export val; }
+rw: "@B^"^immb(reg) is mode=11 & reg; immb { local addr:4 = reg + sext(immb); local oa:4; mem_lread(oa, addr); local val:2; mem_wread(val, oa); export val; }
+rl: "@B^"^immb(reg) is mode=11 & reg; immb { local addr:4 = reg + sext(immb); local oa:4; mem_lread(oa, addr); local val:4; mem_lread(val, oa); export val; }
+rq: "@B^"^immb(reg) is mode=11 & reg; immb { local addr:4 = reg + sext(immb); local oa:4; mem_lread(oa, addr); local val:8; mem_qread(val, oa); export val; }
+oab: "@B^"^immb(reg) is mode=11 & reg; immb { local addr:4 = reg + sext(immb); local oa:4; mem_lread(oa, addr); export oa; }
+oaw: "@B^"^immb(reg) is mode=11 & reg; immb { local addr:4 = reg + sext(immb); local oa:4; mem_lread(oa, addr); export oa; }
+oal: "@B^"^immb(reg) is mode=11 & reg; immb { local addr:4 = reg + sext(immb); local oa:4; mem_lread(oa, addr); export oa; }
+oaq: "@B^"^immb(reg) is mode=11 & reg; immb { local addr:4 = reg + sext(immb); local oa:4; mem_lread(oa, addr); export oa; }
 
 #   11: byte relative deferred
 rb: "@"^reladdr8 is mode=11 & reg=15; reladdr8 { local oa:4; mem_lread(oa, reladdr8); local val:1; mem_bread(val, oa); export val; }
@@ -480,14 +481,14 @@ oal: "@"^reladdr8 is mode=11 & reg=15; reladdr8 { local oa:4; mem_lread(oa, rela
 oaq: "@"^reladdr8 is mode=11 & reg=15; reladdr8 { local oa:4; mem_lread(oa, reladdr8); export oa; }
 
 #   12: word displacement
-rb: "W^"^offset16(reg) is mode=12 & reg; offset16 { local oa:4 = reg + sext(offset16); local val:1; mem_bread(val, oa); export val; }
-rw: "W^"^offset16(reg) is mode=12 & reg; offset16 { local oa:4 = reg + sext(offset16); local val:2; mem_wread(val, oa); export val; }
-rl: "W^"^offset16(reg) is mode=12 & reg; offset16 { local oa:4 = reg + sext(offset16); local val:4; mem_lread(val, oa); export val; }
-rq: "W^"^offset16(reg) is mode=12 & reg; offset16 { local oa:4 = reg + sext(offset16); local val:8; mem_qread(val, oa); export val; }
-oab: "W^"^offset16(reg) is mode=12 & reg; offset16 { local oa:4 = reg + sext(offset16); export oa; }
-oaw: "W^"^offset16(reg) is mode=12 & reg; offset16 { local oa:4 = reg + sext(offset16); export oa; }
-oal: "W^"^offset16(reg) is mode=12 & reg; offset16 { local oa:4 = reg + sext(offset16); export oa; }
-oaq: "W^"^offset16(reg) is mode=12 & reg; offset16 { local oa:4 = reg + sext(offset16); export oa; }
+rb: "W^"^immw(reg) is mode=12 & reg; immw { local oa:4 = reg + sext(immw); local val:1; mem_bread(val, oa); export val; }
+rw: "W^"^immw(reg) is mode=12 & reg; immw { local oa:4 = reg + sext(immw); local val:2; mem_wread(val, oa); export val; }
+rl: "W^"^immw(reg) is mode=12 & reg; immw { local oa:4 = reg + sext(immw); local val:4; mem_lread(val, oa); export val; }
+rq: "W^"^immw(reg) is mode=12 & reg; immw { local oa:4 = reg + sext(immw); local val:8; mem_qread(val, oa); export val; }
+oab: "W^"^immw(reg) is mode=12 & reg; immw { local oa:4 = reg + sext(immw); export oa; }
+oaw: "W^"^immw(reg) is mode=12 & reg; immw { local oa:4 = reg + sext(immw); export oa; }
+oal: "W^"^immw(reg) is mode=12 & reg; immw { local oa:4 = reg + sext(immw); export oa; }
+oaq: "W^"^immw(reg) is mode=12 & reg; immw { local oa:4 = reg + sext(immw); export oa; }
 
 #   12: word relative
 rb: "W^"^reladdr16 is mode=12 & reg=15; reladdr16 { local val:1; mem_bread(val, reladdr16); export val; }
@@ -500,14 +501,14 @@ oal: "W^"^reladdr16 is mode=12 & reg=15; reladdr16 { local oa:4 = reladdr16; exp
 oaq: "W^"^reladdr16 is mode=12 & reg=15; reladdr16 { local oa:4 = reladdr16; export oa; }
 
 #   13: word displacement deferred
-rb: "@W^"^offset16(reg) is mode=13 & reg; offset16 { local addr:4 = reg + sext(offset16); local oa:4; mem_lread(oa, addr); local val:1; mem_bread(val, oa); export val; }
-rw: "@W^"^offset16(reg) is mode=13 & reg; offset16 { local addr:4 = reg + sext(offset16); local oa:4; mem_lread(oa, addr); local val:2; mem_wread(val, oa); export val; }
-rl: "@W^"^offset16(reg) is mode=13 & reg; offset16 { local addr:4 = reg + sext(offset16); local oa:4; mem_lread(oa, addr); local val:4; mem_lread(val, oa); export val; }
-rq: "@W^"^offset16(reg) is mode=13 & reg; offset16 { local addr:4 = reg + sext(offset16); local oa:4; mem_lread(oa, addr); local val:8; mem_qread(val, oa); export val; }
-oab: "@W^"^offset16(reg) is mode=13 & reg; offset16 { local addr:4 = reg + sext(offset16); local oa:4; mem_lread(oa, addr); export oa; }
-oaw: "@W^"^offset16(reg) is mode=13 & reg; offset16 { local addr:4 = reg + sext(offset16); local oa:4; mem_lread(oa, addr); export oa; }
-oal: "@W^"^offset16(reg) is mode=13 & reg; offset16 { local addr:4 = reg + sext(offset16); local oa:4; mem_lread(oa, addr); export oa; }
-oaq: "@W^"^offset16(reg) is mode=13 & reg; offset16 { local addr:4 = reg + sext(offset16); local oa:4; mem_lread(oa, addr); export oa; }
+rb: "@W^"^immw(reg) is mode=13 & reg; immw { local addr:4 = reg + sext(immw); local oa:4; mem_lread(oa, addr); local val:1; mem_bread(val, oa); export val; }
+rw: "@W^"^immw(reg) is mode=13 & reg; immw { local addr:4 = reg + sext(immw); local oa:4; mem_lread(oa, addr); local val:2; mem_wread(val, oa); export val; }
+rl: "@W^"^immw(reg) is mode=13 & reg; immw { local addr:4 = reg + sext(immw); local oa:4; mem_lread(oa, addr); local val:4; mem_lread(val, oa); export val; }
+rq: "@W^"^immw(reg) is mode=13 & reg; immw { local addr:4 = reg + sext(immw); local oa:4; mem_lread(oa, addr); local val:8; mem_qread(val, oa); export val; }
+oab: "@W^"^immw(reg) is mode=13 & reg; immw { local addr:4 = reg + sext(immw); local oa:4; mem_lread(oa, addr); export oa; }
+oaw: "@W^"^immw(reg) is mode=13 & reg; immw { local addr:4 = reg + sext(immw); local oa:4; mem_lread(oa, addr); export oa; }
+oal: "@W^"^immw(reg) is mode=13 & reg; immw { local addr:4 = reg + sext(immw); local oa:4; mem_lread(oa, addr); export oa; }
+oaq: "@W^"^immw(reg) is mode=13 & reg; immw { local addr:4 = reg + sext(immw); local oa:4; mem_lread(oa, addr); export oa; }
 
 #   13: word relative deferred
 rb: "@W"^reladdr16 is mode=13 & reg=15; reladdr16 { local oa:4; mem_lread(oa, reladdr16); local val:1; mem_bread(val, oa); export val; }
@@ -520,14 +521,14 @@ oal: "@W"^reladdr16 is mode=13 & reg=15; reladdr16 { local oa:4; mem_lread(oa, r
 oaq: "@W"^reladdr16 is mode=13 & reg=15; reladdr16 { local oa:4; mem_lread(oa, reladdr16); export oa; }
 
 #   14: long displacement
-rb: "L^"^offset32(reg) is mode=14 & reg; offset32 { local oa:4 = reg + offset32; local val:1; mem_bread(val, oa); export val; }
-rw: "L^"^offset32(reg) is mode=14 & reg; offset32 { local oa:4 = reg + offset32; local val:2; mem_wread(val, oa); export val; }
-rl: "L^"^offset32(reg) is mode=14 & reg; offset32 { local oa:4 = reg + offset32; local val:4; mem_lread(val, oa); export val; }
-rq: "L^"^offset32(reg) is mode=14 & reg; offset32 { local oa:4 = reg + offset32; local val:8; mem_qread(val, oa); export val; }
-oab: "L^"^offset32(reg) is mode=14 & reg; offset32 { local oa:4 = reg + offset32; export oa; }
-oaw: "L^"^offset32(reg) is mode=14 & reg; offset32 { local oa:4 = reg + offset32; export oa; }
-oal: "L^"^offset32(reg) is mode=14 & reg; offset32 { local oa:4 = reg + offset32; export oa; }
-oaq: "L^"^offset32(reg) is mode=14 & reg; offset32 { local oa:4 = reg + offset32; export oa; }
+rb: "L^"^imml(reg) is mode=14 & reg; imml { local oa:4 = reg + imml; local val:1; mem_bread(val, oa); export val; }
+rw: "L^"^imml(reg) is mode=14 & reg; imml { local oa:4 = reg + imml; local val:2; mem_wread(val, oa); export val; }
+rl: "L^"^imml(reg) is mode=14 & reg; imml { local oa:4 = reg + imml; local val:4; mem_lread(val, oa); export val; }
+rq: "L^"^imml(reg) is mode=14 & reg; imml { local oa:4 = reg + imml; local val:8; mem_qread(val, oa); export val; }
+oab: "L^"^imml(reg) is mode=14 & reg; imml { local oa:4 = reg + imml; export oa; }
+oaw: "L^"^imml(reg) is mode=14 & reg; imml { local oa:4 = reg + imml; export oa; }
+oal: "L^"^imml(reg) is mode=14 & reg; imml { local oa:4 = reg + imml; export oa; }
+oaq: "L^"^imml(reg) is mode=14 & reg; imml { local oa:4 = reg + imml; export oa; }
 
 #   14: long relative
 rb: "L^"^reladdr32 is mode=14 & reg=15; reladdr32 { local val:1; mem_bread(val, reladdr32); export val; }
@@ -540,14 +541,14 @@ oal: "L^"^reladdr32 is mode=14 & reg=15; reladdr32 { local oa:4 = reladdr32; exp
 oaq: "L^"^reladdr32 is mode=14 & reg=15; reladdr32 { local oa:4 = reladdr32; export oa; }
 
 #   15: long displacement deferred
-rb: "@L^"^offset32(reg) is mode=15 & reg; offset32 { local addr:4 = reg + offset32; local oa:4; mem_lread(oa, addr); local val:1; mem_bread(val, oa); export val; }
-rw: "@L^"^offset32(reg) is mode=15 & reg; offset32 { local addr:4 = reg + offset32; local oa:4; mem_lread(oa, addr); local val:2; mem_wread(val, oa); export val; }
-rl: "@L^"^offset32(reg) is mode=15 & reg; offset32 { local addr:4 = reg + offset32; local oa:4; mem_lread(oa, addr); local val:4; mem_lread(val, oa); export val; }
-rq: "@L^"^offset32(reg) is mode=15 & reg; offset32 { local addr:4 = reg + offset32; local oa:4; mem_lread(oa, addr); local val:8; mem_qread(val, oa); export val; }
-oab: "@L^"^offset32(reg) is mode=15 & reg; offset32 { local addr:4 = reg + offset32; local oa:4; mem_lread(oa, addr); export oa; }
-oaw: "@L^"^offset32(reg) is mode=15 & reg; offset32 { local addr:4 = reg + offset32; local oa:4; mem_lread(oa, addr); export oa; }
-oal: "@L^"^offset32(reg) is mode=15 & reg; offset32 { local addr:4 = reg + offset32; local oa:4; mem_lread(oa, addr); export oa; }
-oaq: "@L^"^offset32(reg) is mode=15 & reg; offset32 { local addr:4 = reg + offset32; local oa:4; mem_lread(oa, addr); export oa; }
+rb: "@L^"^imml(reg) is mode=15 & reg; imml { local addr:4 = reg + imml; local oa:4; mem_lread(oa, addr); local val:1; mem_bread(val, oa); export val; }
+rw: "@L^"^imml(reg) is mode=15 & reg; imml { local addr:4 = reg + imml; local oa:4; mem_lread(oa, addr); local val:2; mem_wread(val, oa); export val; }
+rl: "@L^"^imml(reg) is mode=15 & reg; imml { local addr:4 = reg + imml; local oa:4; mem_lread(oa, addr); local val:4; mem_lread(val, oa); export val; }
+rq: "@L^"^imml(reg) is mode=15 & reg; imml { local addr:4 = reg + imml; local oa:4; mem_lread(oa, addr); local val:8; mem_qread(val, oa); export val; }
+oab: "@L^"^imml(reg) is mode=15 & reg; imml { local addr:4 = reg + imml; local oa:4; mem_lread(oa, addr); export oa; }
+oaw: "@L^"^imml(reg) is mode=15 & reg; imml { local addr:4 = reg + imml; local oa:4; mem_lread(oa, addr); export oa; }
+oal: "@L^"^imml(reg) is mode=15 & reg; imml { local addr:4 = reg + imml; local oa:4; mem_lread(oa, addr); export oa; }
+oaq: "@L^"^imml(reg) is mode=15 & reg; imml { local addr:4 = reg + imml; local oa:4; mem_lread(oa, addr); export oa; }
 
 #   15: long relative deferred
 rb: "@L"^reladdr32 is mode=15 & reg=15; reladdr32 { local oa:4; mem_lread(oa, reladdr32); local val:1; mem_bread(val, oa); export val; }
