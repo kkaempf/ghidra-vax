@@ -59,6 +59,8 @@ tests/mfpr-immediate-20080000.asm||LICENSE||||END|
 tests/mfpr-immediate-20080000.hex||LICENSE||||END|
 tests/mfpr-PRx2b-20080000.asm||LICENSE||||END|
 tests/mfpr-PRx2b-20080000.hex||LICENSE||||END|
+tests/mfpr-reg-displacement.asm||LICENSE||||END|
+tests/mfpr-reg-displacement.hex||LICENSE||||END|
 tests/movab.asm||LICENSE||||END|
 tests/movab.hex||LICENSE||||END|
 tests/movc5-srcaddr-immediate.asm||LICENSE||||END|

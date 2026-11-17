@@ -2135,12 +2135,13 @@ procreg: pregbnum is pregbmode = 0    & pregbnum { local tmp:4 = &KSP + pregbnum
 procreg: preglnum is preglmode = 0x8f & preglnum { local tmp:4 = &KSP + preglnum; export tmp; }
 
 # move to processor register: src.rl, procreg.rl
-#:MTPR rl, procreg is opcode=0xda; rl; procreg {
-#  *[register]procreg = rl;
-#}
+:MTPR rl, rl2 is opcode=0xda; rl; rl2 {
+  local tmp:4 = &KSP + rl2; *[register]tmp = rl;
+}
 
 # move from processor register: procreg.rl, dst.wl
-:MFPR procreg, oal is opcode=0xdb; procreg; oal {
-  local val:4 = *[register]procreg;
+:MFPR rl, oal is opcode=0xdb; rl; oal {
+  local tmp:4 = &KSP + rl;
+  local val:4 = *[register]tmp;
   mem_lwrite(oal, val);
 }
